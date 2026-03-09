@@ -1,13 +1,26 @@
-const CACHE_NAME = 'ind-esports-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
+const CACHE_NAME = 'ind-esports-v2';
+
+// Identity provider URLs to never cache or intercept
+const IDENTITY_URLS = [
+  'identity.ic0.app',
+  'identity.internetcomputer.org',
+  'internetcomputer.org',
+  'identity.icp0.io',
 ];
+
+function isIdentityRequest(url) {
+  return IDENTITY_URLS.some((domain) => url.includes(domain));
+}
+
+function isCacheableAsset(url) {
+  // Only cache static assets: JS, CSS, images, fonts, wasm
+  return /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webp|wasm)(\?.*)?$/.test(url);
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      return cache.addAll(['/index.html']);
     })
   );
   self.skipWaiting();
@@ -27,33 +40,44 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
+  const url = event.request.url;
+
+  // Never intercept non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) return;
+  // Never intercept Internet Identity requests
+  if (isIdentityRequest(url)) return;
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Cache successful responses for static assets
-        if (response.ok) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return response;
+  // Never intercept cross-origin requests
+  if (!url.startsWith(self.location.origin)) return;
+
+  // Never intercept HTML navigation requests (let the app handle routing)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        // Only serve cached index.html when truly offline
+        return caches.match('/index.html');
       })
-      .catch(() => {
-        // Fallback to cache when offline
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-          // Return cached index.html for navigation requests
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
+    );
+    return;
+  }
+
+  // For static assets only: cache-first strategy
+  if (isCacheableAsset(url)) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
+          return response;
         });
       })
-  );
+    );
+    return;
+  }
+
+  // For all other requests (API calls, canister calls, etc.) — pass through, no caching
 });
