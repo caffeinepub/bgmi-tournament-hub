@@ -13,18 +13,14 @@ import type { Principal } from '@icp-sdk/core/principal';
 export type PaymentStatus = { 'Rejected' : null } |
   { 'Verified' : null } |
   { 'Pending' : null };
-export interface PaymentStatusUpdate {
-  'newStatus' : PaymentStatus,
-  'registrationId' : string,
-}
+export type Phone = string;
 export interface Registration {
   'id' : string,
   'paymentStatus' : PaymentStatus,
   'playerId' : Principal,
-  'email' : string,
   'paymentScreenshotId' : string,
   'playerName' : string,
-  'phone' : string,
+  'phone' : Phone,
   'bgmiId' : string,
   'registeredAt' : bigint,
   'tournamentId' : string,
@@ -47,7 +43,7 @@ export type TournamentStatus = { 'Live' : null } |
   { 'Cancelled' : null } |
   { 'Completed' : null } |
   { 'Upcoming' : null };
-export interface UserProfile { 'name' : string }
+export interface UserProfile { 'name' : string, 'phone' : Phone }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
@@ -80,6 +76,7 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'cancelTournament' : ActorMethod<[string], undefined>,
   'createTournament' : ActorMethod<
     [string, string, string, bigint, bigint, bigint, string],
     string
@@ -94,13 +91,16 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listTournaments' : ActorMethod<[], Array<Tournament>>,
   'registerForTournament' : ActorMethod<
-    [string, string, string, string, string, string],
+    [string, string, Phone, string, string],
     string
   >,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setRoomDetails' : ActorMethod<[string, string, string], undefined>,
   'updatePaymentScreenshot' : ActorMethod<[string, string], undefined>,
-  'updatePaymentStatus' : ActorMethod<[Array<PaymentStatusUpdate>], undefined>,
+  'updatePaymentStatus' : ActorMethod<
+    [Array<[string, PaymentStatus]>],
+    undefined
+  >,
   'updateTournament' : ActorMethod<
     [
       string,

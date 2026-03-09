@@ -44,6 +44,7 @@ import {
   Edit,
   Key,
   Loader2,
+  OctagonX,
   Plus,
   Shield,
   Trash2,
@@ -56,6 +57,7 @@ import { toast } from "sonner";
 import { PaymentStatus, type Tournament, TournamentStatus } from "../backend.d";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
+  useCancelTournament,
   useCreateTournament,
   useDeleteTournament,
   useIsCallerAdmin,
@@ -205,9 +207,6 @@ function AdminRegistrationsTab() {
                   BGMI ID
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Email
-                </TableHead>
-                <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Phone
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -233,9 +232,6 @@ function AdminRegistrationsTab() {
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {reg.bgmiId}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {reg.email}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {reg.phone}
@@ -300,12 +296,14 @@ export function AdminPage() {
   const createTournament = useCreateTournament();
   const updateTournament = useUpdateTournament();
   const deleteTournament = useDeleteTournament();
+  const cancelTournament = useCancelTournament();
   const setRoomDetails = useSetRoomDetails();
 
   // Dialogs
   const [createOpen, setCreateOpen] = useState(false);
   const [editTournament, setEditTournament] = useState<Tournament | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [stopId, setStopId] = useState<string | null>(null);
   const [roomTournament, setRoomTournament] = useState<Tournament | null>(null);
 
   // Forms
@@ -414,6 +412,17 @@ export function AdminPage() {
       setDeleteId(null);
     } catch {
       toast.error("Failed to delete tournament");
+    }
+  };
+
+  const handleStop = async () => {
+    if (!stopId) return;
+    try {
+      await cancelTournament.mutateAsync(stopId);
+      toast.success("Tournament stopped!");
+      setStopId(null);
+    } catch {
+      toast.error("Failed to stop tournament");
     }
   };
 
@@ -757,6 +766,19 @@ export function AdminPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
+                          {t.status !== TournamentStatus.Cancelled &&
+                            t.status !== TournamentStatus.Completed && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setStopId(t.id)}
+                                data-ocid={`admin.stop_button.${idx + 1}`}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                title="Stop Match"
+                              >
+                                <OctagonX className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
                           <Button
                             size="sm"
                             variant="ghost"
@@ -914,6 +936,41 @@ export function AdminPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Stop Match Confirm Dialog */}
+      <AlertDialog open={!!stopId} onOpenChange={(o) => !o && setStopId(null)}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display font-bold uppercase tracking-wider">
+              Stop This Match?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground text-sm">
+              This will cancel the tournament immediately. All registered
+              players will be notified. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="border-border"
+              data-ocid="admin.stop.cancel_button"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleStop}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/80"
+              data-ocid="admin.stop.confirm_button"
+            >
+              {cancelTournament.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <OctagonX className="w-4 h-4 mr-2" />
+              )}
+              Stop Match
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirm Dialog */}
       <AlertDialog

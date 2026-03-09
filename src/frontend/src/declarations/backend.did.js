@@ -29,19 +29,19 @@ export const PaymentStatus = IDL.Variant({
   'Verified' : IDL.Null,
   'Pending' : IDL.Null,
 });
+export const Phone = IDL.Text;
 export const Registration = IDL.Record({
   'id' : IDL.Text,
   'paymentStatus' : PaymentStatus,
   'playerId' : IDL.Principal,
-  'email' : IDL.Text,
   'paymentScreenshotId' : IDL.Text,
   'playerName' : IDL.Text,
-  'phone' : IDL.Text,
+  'phone' : Phone,
   'bgmiId' : IDL.Text,
   'registeredAt' : IDL.Int,
   'tournamentId' : IDL.Text,
 });
-export const UserProfile = IDL.Record({ 'name' : IDL.Text });
+export const UserProfile = IDL.Record({ 'name' : IDL.Text, 'phone' : Phone });
 export const TournamentStatus = IDL.Variant({
   'Live' : IDL.Null,
   'Cancelled' : IDL.Null,
@@ -61,10 +61,6 @@ export const Tournament = IDL.Record({
   'entryFee' : IDL.Nat,
   'roomId' : IDL.Opt(IDL.Text),
   'prizePool' : IDL.Text,
-});
-export const PaymentStatusUpdate = IDL.Record({
-  'newStatus' : PaymentStatus,
-  'registrationId' : IDL.Text,
 });
 
 export const idlService = IDL.Service({
@@ -96,6 +92,7 @@ export const idlService = IDL.Service({
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'cancelTournament' : IDL.Func([IDL.Text], [], []),
   'createTournament' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Int, IDL.Text],
       [IDL.Text],
@@ -119,14 +116,18 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listTournaments' : IDL.Func([], [IDL.Vec(Tournament)], ['query']),
   'registerForTournament' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Text, IDL.Text, Phone, IDL.Text, IDL.Text],
       [IDL.Text],
       [],
     ),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setRoomDetails' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
   'updatePaymentScreenshot' : IDL.Func([IDL.Text, IDL.Text], [], []),
-  'updatePaymentStatus' : IDL.Func([IDL.Vec(PaymentStatusUpdate)], [], []),
+  'updatePaymentStatus' : IDL.Func(
+      [IDL.Vec(IDL.Tuple(IDL.Text, PaymentStatus))],
+      [],
+      [],
+    ),
   'updateTournament' : IDL.Func(
       [
         IDL.Text,
@@ -168,19 +169,19 @@ export const idlFactory = ({ IDL }) => {
     'Verified' : IDL.Null,
     'Pending' : IDL.Null,
   });
+  const Phone = IDL.Text;
   const Registration = IDL.Record({
     'id' : IDL.Text,
     'paymentStatus' : PaymentStatus,
     'playerId' : IDL.Principal,
-    'email' : IDL.Text,
     'paymentScreenshotId' : IDL.Text,
     'playerName' : IDL.Text,
-    'phone' : IDL.Text,
+    'phone' : Phone,
     'bgmiId' : IDL.Text,
     'registeredAt' : IDL.Int,
     'tournamentId' : IDL.Text,
   });
-  const UserProfile = IDL.Record({ 'name' : IDL.Text });
+  const UserProfile = IDL.Record({ 'name' : IDL.Text, 'phone' : Phone });
   const TournamentStatus = IDL.Variant({
     'Live' : IDL.Null,
     'Cancelled' : IDL.Null,
@@ -200,10 +201,6 @@ export const idlFactory = ({ IDL }) => {
     'entryFee' : IDL.Nat,
     'roomId' : IDL.Opt(IDL.Text),
     'prizePool' : IDL.Text,
-  });
-  const PaymentStatusUpdate = IDL.Record({
-    'newStatus' : PaymentStatus,
-    'registrationId' : IDL.Text,
   });
   
   return IDL.Service({
@@ -235,6 +232,7 @@ export const idlFactory = ({ IDL }) => {
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'cancelTournament' : IDL.Func([IDL.Text], [], []),
     'createTournament' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Int, IDL.Text],
         [IDL.Text],
@@ -258,14 +256,18 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listTournaments' : IDL.Func([], [IDL.Vec(Tournament)], ['query']),
     'registerForTournament' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Text, IDL.Text, Phone, IDL.Text, IDL.Text],
         [IDL.Text],
         [],
       ),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setRoomDetails' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
     'updatePaymentScreenshot' : IDL.Func([IDL.Text, IDL.Text], [], []),
-    'updatePaymentStatus' : IDL.Func([IDL.Vec(PaymentStatusUpdate)], [], []),
+    'updatePaymentStatus' : IDL.Func(
+        [IDL.Vec(IDL.Tuple(IDL.Text, PaymentStatus))],
+        [],
+        [],
+      ),
     'updateTournament' : IDL.Func(
         [
           IDL.Text,

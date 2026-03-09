@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  PaymentStatusUpdate,
+  PaymentStatus,
   Registration,
   Tournament,
   TournamentStatus,
 } from "../backend.d";
 import { useActor } from "./useActor";
+
+type PaymentStatusUpdate = { registrationId: string; newStatus: PaymentStatus };
 
 // ---- Tournaments ----
 export function useListTournaments() {
@@ -22,11 +24,12 @@ export function useListTournaments() {
 
 export function useGetTournament(id: string) {
   const { actor, isFetching } = useActor();
-  return useQuery<Tournament>({
+  return useQuery<Tournament | null>({
     queryKey: ["tournament", id],
     queryFn: async () => {
-      if (!actor) throw new Error("No actor");
-      return actor.getTournament(id);
+      if (!actor) return null;
+      const result = await actor.getTournament(id);
+      return result ?? null;
     },
     enabled: !!actor && !isFetching && !!id,
   });
@@ -149,6 +152,46 @@ export function useDeleteTournament() {
   });
 }
 
+export function useCancelTournament() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.cancelTournament(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+    },
+  });
+}
+
+export function useSaveUserProfile() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (profile: { name: string; phone: string }) => {
+      if (!actor) throw new Error("Not connected");
+      return actor.saveCallerUserProfile(profile);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+    },
+  });
+}
+
+export function useGetUserProfile() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["userProfile"],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getCallerUserProfile();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
 export function useSetRoomDetails() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
@@ -181,7 +224,6 @@ export function useRegisterForTournament() {
     mutationFn: async (params: {
       tournamentId: string;
       playerName: string;
-      email: string;
       phone: string;
       bgmiId: string;
       paymentScreenshotId: string;
@@ -190,7 +232,6 @@ export function useRegisterForTournament() {
       return actor.registerForTournament(
         params.tournamentId,
         params.playerName,
-        params.email,
         params.phone,
         params.bgmiId,
         params.paymentScreenshotId,
@@ -209,7 +250,11 @@ export function useUpdatePaymentStatus() {
   return useMutation({
     mutationFn: async (updates: PaymentStatusUpdate[]) => {
       if (!actor) throw new Error("Not connected");
-      return actor.updatePaymentStatus(updates);
+      return actor.updatePaymentStatus(
+        updates.map(
+          (u) => [u.registrationId, u.newStatus] as [string, PaymentStatus],
+        ),
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tournamentRegistrations"] });

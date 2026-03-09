@@ -1,10 +1,38 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
-import { LogIn, LogOut, Menu, Shield, Trophy, User, X } from "lucide-react";
+import { LogIn, LogOut, Menu, Shield, Smartphone, User, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useIsCallerAdmin } from "../hooks/useQueries";
+
+function LaunchBGMIButton({ className = "" }: { className?: string }) {
+  const handleLaunch = () => {
+    // Try deep link - works on Android with BGMI installed
+    // On desktop/unsupported, silently fails
+    try {
+      window.open(
+        "intent://com.pubg.imobile#Intent;scheme=bgmi;package=com.pubg.imobile;end",
+        "_blank",
+      );
+    } catch {
+      // Fallback: try iOS scheme
+      window.location.href = "bgmi://launch";
+    }
+  };
+
+  return (
+    <Button
+      onClick={handleLaunch}
+      data-ocid="nav.launch_bgmi_button"
+      className={`neon-btn-gold text-xs px-3 py-1.5 flex items-center gap-1.5 ${className}`}
+      size="sm"
+    >
+      <Smartphone className="w-3 h-3" />
+      <span className="hidden sm:inline">Launch</span> BGMI
+    </Button>
+  );
+}
 
 export function Navbar() {
   const { login, clear, identity, isLoggingIn, isInitializing } =
@@ -15,31 +43,40 @@ export function Navbar() {
   const isLoggedIn = !!identity;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
-      {/* Top accent line */}
-      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-neon-cyan to-transparent opacity-60" />
+    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
+      {/* Top accent line - cyan to purple gradient */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-neon-cyan to-neon-purple opacity-70" />
 
       <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link
           to="/"
           data-ocid="nav.home_link"
-          className="flex items-center gap-2 group"
+          className="flex items-center gap-2.5 group shrink-0"
         >
-          <div className="w-8 h-8 rounded-sm flex items-center justify-center bg-primary/10 border border-primary/30 group-hover:border-primary/60 transition-all glow-border-cyan">
-            <Trophy className="w-4 h-4 text-primary" />
+          <div className="relative w-9 h-9 shrink-0">
+            <img
+              src="/assets/generated/ind-esports-logo-trident-gun-transparent.dim_400x400.png"
+              alt="IND eSports Logo"
+              className="w-full h-full object-contain drop-shadow-[0_0_8px_oklch(0.86_0.22_198/0.7)] group-hover:drop-shadow-[0_0_14px_oklch(0.86_0.22_198/0.9)] transition-all duration-300"
+            />
           </div>
-          <span className="font-display font-bold text-lg tracking-wider text-foreground group-hover:text-primary transition-colors">
-            BGMI<span className="text-primary glow-text-cyan">HUB</span>
-          </span>
+          <div className="flex flex-col leading-none">
+            <span className="font-display font-black text-base tracking-[0.1em] uppercase text-foreground group-hover:text-primary transition-colors">
+              IND <span className="text-primary glow-text-cyan">eSports</span>
+            </span>
+            <span className="text-[8px] font-mono text-muted-foreground/60 tracking-widest uppercase hidden sm:block">
+              BGMI Tournament Hub
+            </span>
+          </div>
         </Link>
 
-        {/* Desktop nav */}
+        {/* Desktop nav links */}
         <div className="hidden md:flex items-center gap-6">
           <Link
             to="/"
             data-ocid="nav.home_link"
-            className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors uppercase tracking-wider"
+            className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-[0.1em]"
             activeProps={{ className: "text-primary glow-text-cyan" }}
           >
             Tournaments
@@ -47,19 +84,19 @@ export function Navbar() {
           {isLoggedIn && (
             <Link
               to="/my-registrations"
-              data-ocid="nav.my_registrations_link"
-              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors uppercase tracking-wider"
+              data-ocid="nav.registrations_link"
+              className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-[0.1em]"
               activeProps={{ className: "text-primary glow-text-cyan" }}
             >
-              My Registrations
+              My Slots
             </Link>
           )}
           {isAdmin && (
             <Link
               to="/admin"
               data-ocid="nav.admin_link"
-              className="text-sm font-medium text-muted-foreground hover:text-accent transition-colors uppercase tracking-wider flex items-center gap-1"
-              activeProps={{ className: "text-accent glow-text-green" }}
+              className="text-xs font-bold text-muted-foreground hover:text-neon-gold transition-colors uppercase tracking-[0.1em] flex items-center gap-1"
+              activeProps={{ className: "text-neon-gold glow-text-gold" }}
             >
               <Shield className="w-3 h-3" />
               Admin
@@ -67,14 +104,16 @@ export function Navbar() {
           )}
         </div>
 
-        {/* Auth buttons */}
-        <div className="hidden md:flex items-center gap-3">
+        {/* Right side: Launch BGMI + auth */}
+        <div className="hidden md:flex items-center gap-2">
+          <LaunchBGMIButton />
+
           {isLoggedIn ? (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1 rounded border border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border bg-muted/20">
                 <User className="w-3 h-3 text-primary" />
-                <span className="text-xs text-muted-foreground font-mono">
-                  {identity?.getPrincipal().toString().slice(0, 8)}...
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {identity?.getPrincipal().toString().slice(0, 8)}…
                 </span>
               </div>
               <Button
@@ -82,7 +121,7 @@ export function Navbar() {
                 size="sm"
                 onClick={clear}
                 data-ocid="nav.logout_button"
-                className="text-muted-foreground hover:text-destructive border border-transparent hover:border-destructive/40 transition-all uppercase tracking-wider text-xs"
+                className="text-muted-foreground hover:text-destructive border border-transparent hover:border-destructive/40 transition-all uppercase tracking-[0.08em] text-[10px] h-8"
               >
                 <LogOut className="w-3 h-3 mr-1" />
                 Logout
@@ -94,10 +133,10 @@ export function Navbar() {
               onClick={login}
               disabled={isLoggingIn || isInitializing}
               data-ocid="nav.login_button"
-              className="neon-btn px-4 py-1.5 text-xs"
+              className="neon-btn px-4 py-1.5 text-[10px] h-8"
             >
               {isLoggingIn ? (
-                <span className="animate-pulse">Connecting...</span>
+                <span className="animate-pulse">Connecting…</span>
               ) : (
                 <>
                   <LogIn className="w-3 h-3 mr-1.5" />
@@ -108,19 +147,22 @@ export function Navbar() {
           )}
         </div>
 
-        {/* Mobile menu toggle */}
-        <button
-          type="button"
-          className="md:hidden p-2 text-muted-foreground hover:text-foreground"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
-        >
-          {mobileOpen ? (
-            <X className="w-5 h-5" />
-          ) : (
-            <Menu className="w-5 h-5" />
-          )}
-        </button>
+        {/* Mobile: Launch BGMI + menu toggle */}
+        <div className="md:hidden flex items-center gap-2">
+          <LaunchBGMIButton className="!px-2" />
+          <button
+            type="button"
+            className="p-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5" />
+            )}
+          </button>
+        </div>
       </nav>
 
       {/* Mobile menu */}
@@ -137,18 +179,18 @@ export function Navbar() {
                 to="/"
                 data-ocid="nav.home_link"
                 onClick={() => setMobileOpen(false)}
-                className="text-sm font-medium text-muted-foreground hover:text-primary py-2 uppercase tracking-wider"
+                className="text-sm font-bold text-muted-foreground hover:text-primary py-2 uppercase tracking-[0.1em]"
               >
                 Tournaments
               </Link>
               {isLoggedIn && (
                 <Link
                   to="/my-registrations"
-                  data-ocid="nav.my_registrations_link"
+                  data-ocid="nav.registrations_link"
                   onClick={() => setMobileOpen(false)}
-                  className="text-sm font-medium text-muted-foreground hover:text-primary py-2 uppercase tracking-wider"
+                  className="text-sm font-bold text-muted-foreground hover:text-primary py-2 uppercase tracking-[0.1em]"
                 >
-                  My Registrations
+                  My Slots
                 </Link>
               )}
               {isAdmin && (
@@ -156,10 +198,10 @@ export function Navbar() {
                   to="/admin"
                   data-ocid="nav.admin_link"
                   onClick={() => setMobileOpen(false)}
-                  className="text-sm font-medium text-muted-foreground hover:text-accent py-2 uppercase tracking-wider flex items-center gap-1"
+                  className="text-sm font-bold text-muted-foreground hover:text-neon-gold py-2 uppercase tracking-[0.1em] flex items-center gap-1"
                 >
-                  <Shield className="w-3 h-3" />
-                  Admin
+                  <Shield className="w-3.5 h-3.5" />
+                  Admin Panel
                 </Link>
               )}
               <div className="pt-2 border-t border-border">
@@ -172,7 +214,7 @@ export function Navbar() {
                       setMobileOpen(false);
                     }}
                     data-ocid="nav.logout_button"
-                    className="text-destructive w-full justify-start uppercase tracking-wider text-xs"
+                    className="text-destructive w-full justify-start uppercase tracking-[0.08em] text-xs"
                   >
                     <LogOut className="w-3 h-3 mr-2" />
                     Logout

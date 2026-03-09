@@ -182,11 +182,10 @@ export function MyRegistrationsPage() {
                   </div>
 
                   {/* Player info */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                     {[
                       { label: "Player", value: reg.playerName },
                       { label: "BGMI ID", value: reg.bgmiId },
-                      { label: "Email", value: reg.email },
                       { label: "Phone", value: reg.phone },
                     ].map(({ label, value }) => (
                       <div

@@ -1,4 +1,11 @@
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,24 +15,31 @@ import {
   ArrowLeft,
   CheckCircle,
   Clock,
+  Copy,
   Eye,
   EyeOff,
   IndianRupee,
   Loader2,
+  Phone,
   QrCode,
   Trophy,
   Upload,
+  User,
   Users,
+  Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PaymentStatus, TournamentStatus } from "../backend.d";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useCallerRegistrations,
   useGetTournament,
+  useGetUserProfile,
   useRegisterForTournament,
+  useSaveUserProfile,
 } from "../hooks/useQueries";
 
 function formatDate(timestamp: bigint): string {
@@ -58,52 +72,148 @@ function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
 function RoomRevealCard({
   roomId,
   roomPassword,
-}: { roomId: string; roomPassword: string }) {
-  const [show, setShow] = useState(false);
+}: {
+  roomId: string;
+  roomPassword: string;
+}) {
+  const [showPass, setShowPass] = useState(false);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied!`);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="gaming-card rounded-lg p-5 glow-border-green relative overflow-hidden"
+      className="rounded-lg p-5 relative overflow-hidden"
+      data-ocid="tournament.room_details_panel"
+      style={{
+        background:
+          "linear-gradient(135deg, oklch(0.10 0.025 145) 0%, oklch(0.08 0.018 155) 100%)",
+        border: "1px solid oklch(0.75 0.22 135 / 0.4)",
+        boxShadow:
+          "0 0 20px oklch(0.75 0.22 135 / 0.12), 0 4px 20px oklch(0.04 0.01 255 / 0.8)",
+      }}
     >
-      <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-accent/60" />
-      <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-accent/60" />
+      <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-neon-green" />
+      <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-neon-green" />
+
       <div className="flex items-center gap-2 mb-4">
-        <CheckCircle className="w-5 h-5 text-accent" />
-        <h3 className="font-display font-bold text-accent glow-text-green uppercase tracking-wider">
-          Room Details Revealed
+        <CheckCircle className="w-5 h-5 text-neon-green glow-text-green" />
+        <h3 className="font-display font-black text-base text-neon-green uppercase tracking-wider glow-text-green">
+          Room Details Revealed!
         </h3>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-muted/30 rounded p-3 border border-accent/20">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div
+          className="rounded p-3 border"
+          style={{
+            background: "oklch(0.08 0.02 145 / 0.6)",
+            borderColor: "oklch(0.75 0.22 135 / 0.25)",
+          }}
+        >
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-1 font-bold">
             Room ID
           </p>
-          <p className="font-mono font-bold text-foreground">{roomId}</p>
-        </div>
-        <div className="bg-muted/30 rounded p-3 border border-accent/20 relative">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-            Password
-          </p>
-          <div className="flex items-center gap-2">
-            <p className="font-mono font-bold text-foreground flex-1">
-              {show ? roomPassword : "••••••••"}
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-mono font-black text-foreground text-lg">
+              {roomId}
             </p>
             <button
               type="button"
-              onClick={() => setShow(!show)}
-              className="text-muted-foreground hover:text-foreground"
+              onClick={() => copyToClipboard(roomId, "Room ID")}
+              className="text-muted-foreground hover:text-neon-green transition-colors"
             >
-              {show ? (
-                <EyeOff className="w-4 h-4" />
-              ) : (
-                <Eye className="w-4 h-4" />
-              )}
+              <Copy className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
+
+        <div
+          className="rounded p-3 border"
+          style={{
+            background: "oklch(0.08 0.02 145 / 0.6)",
+            borderColor: "oklch(0.75 0.22 135 / 0.25)",
+          }}
+        >
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wider mb-1 font-bold">
+            Password
+          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-mono font-black text-foreground text-lg">
+              {showPass ? roomPassword : "••••••••"}
+            </p>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="text-muted-foreground hover:text-neon-green transition-colors"
+              >
+                {showPass ? (
+                  <EyeOff className="w-3.5 h-3.5" />
+                ) : (
+                  <Eye className="w-3.5 h-3.5" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(roomPassword, "Password")}
+                className="text-muted-foreground hover:text-neon-green transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <p className="text-[10px] text-neon-green/70 mt-3 font-mono text-center uppercase tracking-widest">
+        ↑ Use these details in BGMI to enter the custom room ↑
+      </p>
     </motion.div>
+  );
+}
+
+// "You're Late" dialog for full tournaments
+function FullTournamentDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent
+        className="bg-card border-border max-w-sm text-center gaming-card"
+        data-ocid="full_tournament.dialog"
+      >
+        <DialogHeader>
+          <div className="text-5xl text-center mb-2">😅</div>
+          <DialogTitle className="font-display font-black text-xl uppercase tracking-wider text-center">
+            You're Late!
+          </DialogTitle>
+          <DialogDescription className="text-muted-foreground text-sm text-center mt-2 leading-relaxed">
+            This tournament is already{" "}
+            <span className="text-destructive font-bold">FULL</span>.
+            <br />
+            <span className="text-primary">
+              Keep an eye out for the next one!
+            </span>
+          </DialogDescription>
+        </DialogHeader>
+        <Button
+          className="neon-btn w-full mt-2"
+          onClick={onClose}
+          data-ocid="full_tournament.close_button"
+        >
+          Got it 👊
+        </Button>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -111,27 +221,42 @@ export function TournamentDetailPage() {
   const { id } = useParams({ from: "/tournament/$id" });
   const { identity, login } = useInternetIdentity();
   const isLoggedIn = !!identity;
+  const { actor, isFetching: actorFetching } = useActor();
 
   const { data: tournament, isLoading: tournamentLoading } =
     useGetTournament(id);
   const { data: myRegistrations } = useCallerRegistrations();
+  const { data: userProfile } = useGetUserProfile();
   const registerMutation = useRegisterForTournament();
+  const saveProfileMutation = useSaveUserProfile();
 
-  const [step, setStep] = useState<1 | 2>(1);
-  const [formData, setFormData] = useState({
-    playerName: "",
-    email: "",
-    phone: "",
-    bgmiId: "",
-  });
+  // Steps: "profile" | "details" | "payment" | "done"
+  const [flowStep, setFlowStep] = useState<
+    "profile" | "details" | "payment" | "done"
+  >("details");
+  const [profileForm, setProfileForm] = useState({ name: "", phone: "" });
+  const [formData, setFormData] = useState({ bgmiId: "" });
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(
     null,
   );
   const [uploading, setUploading] = useState(false);
+  const [fullDialogOpen, setFullDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const myRegistration = myRegistrations?.find((r) => r.tournamentId === id);
+
+  // Check if profile is complete when user logs in
+  useEffect(() => {
+    if (isLoggedIn && userProfile !== undefined) {
+      if (!userProfile || !userProfile.phone) {
+        setFlowStep("profile");
+      } else {
+        setProfileForm({ name: userProfile.name, phone: userProfile.phone });
+        setFlowStep("details");
+      }
+    }
+  }, [isLoggedIn, userProfile]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -140,44 +265,61 @@ export function TournamentDetailPage() {
       toast.error("Please upload an image file");
       return;
     }
+    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
     setScreenshotFile(file);
-    const url = URL.createObjectURL(file);
-    setScreenshotPreview(url);
+    setScreenshotPreview(URL.createObjectURL(file));
   };
 
-  const handleStep1Submit = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !formData.playerName ||
-      !formData.email ||
-      !formData.phone ||
-      !formData.bgmiId
-    ) {
+    if (!profileForm.name.trim() || !profileForm.phone.trim()) {
       toast.error("Please fill all fields");
       return;
     }
-    setStep(2);
+    if (!/^[6-9]\d{9}$/.test(profileForm.phone.replace(/\s+/g, ""))) {
+      toast.error("Please enter a valid 10-digit Indian phone number");
+      return;
+    }
+    try {
+      await saveProfileMutation.mutateAsync({
+        name: profileForm.name.trim(),
+        phone: profileForm.phone.trim(),
+      });
+      toast.success("Profile saved!");
+      setFlowStep("details");
+    } catch {
+      toast.error("Failed to save profile");
+    }
+  };
+
+  const handleJoinClick = () => {
+    if (!tournament) return;
+    // Check if full (we don't have realtime count for non-admin, so skip this check unless we have data)
+    setFlowStep("payment");
   };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!screenshotFile) {
-      toast.error("Please upload payment screenshot");
+      toast.error("Please upload your payment screenshot");
+      return;
+    }
+    if (!formData.bgmiId.trim()) {
+      toast.error("Please enter your BGMI ID");
       return;
     }
     setUploading(true);
     try {
-      // Read file as base64 for storage ID (using filename + timestamp as mock ID)
       const screenshotId = `screenshot-${Date.now()}-${screenshotFile.name}`;
       await registerMutation.mutateAsync({
         tournamentId: id,
-        playerName: formData.playerName,
-        email: formData.email,
-        phone: formData.phone,
-        bgmiId: formData.bgmiId,
+        playerName: userProfile?.name ?? profileForm.name,
+        phone: userProfile?.phone ?? profileForm.phone,
+        bgmiId: formData.bgmiId.trim(),
         paymentScreenshotId: screenshotId,
       });
       toast.success("Registration submitted! Awaiting payment verification.");
+      setFlowStep("done");
     } catch (err) {
       console.error(err);
       toast.error("Registration failed. Please try again.");
@@ -186,7 +328,8 @@ export function TournamentDetailPage() {
     }
   };
 
-  if (tournamentLoading) {
+  // Loading state
+  if (tournamentLoading || actorFetching || !actor) {
     return (
       <div
         className="container mx-auto px-4 py-10 max-w-4xl"
@@ -215,7 +358,7 @@ export function TournamentDetailPage() {
         <h2 className="font-display font-bold text-xl mb-2">
           Tournament Not Found
         </h2>
-        <p className="text-muted-foreground mb-4">
+        <p className="text-muted-foreground mb-4 text-sm">
           This tournament doesn't exist or has been removed.
         </p>
         <Link to="/">
@@ -230,27 +373,39 @@ export function TournamentDetailPage() {
     tournament.status === TournamentStatus.Completed ||
     tournament.status === TournamentStatus.Cancelled;
 
+  const statusClass =
+    tournament.status === TournamentStatus.Live
+      ? "status-live"
+      : tournament.status === TournamentStatus.Upcoming
+        ? "status-upcoming"
+        : tournament.status === TournamentStatus.Completed
+          ? "status-completed"
+          : "status-cancelled";
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Back */}
+      {/* Back button */}
       <Link
         to="/"
-        className="flex items-center gap-2 text-muted-foreground hover:text-primary mb-6 w-fit transition-colors"
+        className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary mb-6 transition-colors group"
       >
-        <ArrowLeft className="w-4 h-4" />
-        <span className="text-sm uppercase tracking-wider">
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+        <span className="text-xs uppercase tracking-wider font-bold">
           All Tournaments
         </span>
       </Link>
 
-      {/* Tournament header */}
+      {/* Tournament info card */}
       <div className="gaming-card rounded-lg p-6 mb-6 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-primary/60" />
-        <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-primary/60" />
+        <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-primary/50" />
+        <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-primary/50" />
+
+        {/* Neon top line */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
         <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
           <div>
-            <h1 className="font-display font-black text-2xl md:text-3xl text-foreground mb-1">
+            <h1 className="font-display font-black text-2xl md:text-3xl text-foreground mb-1 glow-text-cyan">
               {tournament.name}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -258,76 +413,68 @@ export function TournamentDetailPage() {
             </p>
           </div>
           <span
-            className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-sm shrink-0 ${
-              tournament.status === TournamentStatus.Live
-                ? "status-live"
-                : tournament.status === TournamentStatus.Upcoming
-                  ? "status-upcoming"
-                  : tournament.status === TournamentStatus.Completed
-                    ? "status-completed"
-                    : "status-cancelled"
-            }`}
+            className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-sm shrink-0 ${statusClass}`}
           >
             {tournament.status}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-muted/30 rounded p-3 border border-border/50">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Trophy className="w-3 h-3 text-primary" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-muted/20 rounded p-3 border border-border/40">
+            <div className="flex items-center gap-1 mb-1">
+              <Trophy className="w-3 h-3 text-neon-gold" />
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
                 Prize
               </span>
             </div>
-            <p className="font-bold text-primary glow-text-cyan">
+            <p className="font-black text-neon-gold glow-text-gold">
               {tournament.prizePool}
             </p>
           </div>
-          <div className="bg-muted/30 rounded p-3 border border-border/50">
-            <div className="flex items-center gap-1.5 mb-1">
-              <IndianRupee className="w-3 h-3 text-accent" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          <div className="bg-muted/20 rounded p-3 border border-border/40">
+            <div className="flex items-center gap-1 mb-1">
+              <IndianRupee className="w-3 h-3 text-primary" />
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
                 Entry
               </span>
             </div>
-            <p className="font-bold text-accent">
+            <p className="font-black text-primary glow-text-cyan">
               {tournament.entryFee === BigInt(0)
                 ? "FREE"
                 : `₹${tournament.entryFee}`}
             </p>
           </div>
-          <div className="bg-muted/30 rounded p-3 border border-border/50">
-            <div className="flex items-center gap-1.5 mb-1">
+          <div className="bg-muted/20 rounded p-3 border border-border/40">
+            <div className="flex items-center gap-1 mb-1">
               <Users className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                Slots
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
+                Max Slots
               </span>
             </div>
-            <p className="font-bold text-foreground font-mono">{maxSlots}</p>
+            <p className="font-black text-foreground font-mono">{maxSlots}</p>
           </div>
-          <div className="bg-muted/30 rounded p-3 border border-border/50">
-            <div className="flex items-center gap-1.5 mb-1">
+          <div className="bg-muted/20 rounded p-3 border border-border/40">
+            <div className="flex items-center gap-1 mb-1">
               <Clock className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                Start
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
+                Starts
               </span>
             </div>
-            <p className="font-bold text-foreground text-xs">
+            <p className="font-bold text-foreground text-xs leading-tight">
               {formatDate(tournament.startTime)}
             </p>
           </div>
         </div>
       </div>
 
-      {/* My Registration status if already registered */}
+      {/* My registration status */}
       {myRegistration && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="gaming-card rounded-lg p-6 mb-6"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <h2 className="font-display font-bold text-lg uppercase tracking-wider">
               Your Registration
             </h2>
@@ -342,15 +489,15 @@ export function TournamentDetailPage() {
               roomPassword={tournament.roomPassword}
             />
           ) : myRegistration.paymentStatus === PaymentStatus.Pending ? (
-            <div className="flex items-start gap-3 p-4 bg-muted/20 rounded border border-border">
-              <Clock className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-4 bg-muted/20 rounded border border-neon-gold/20">
+              <Clock className="w-5 h-5 text-neon-gold shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-foreground">
+                <p className="text-sm font-bold text-foreground">
                   Payment Under Review
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Your payment screenshot is being verified. Room details will
-                  appear once confirmed.
+                  Your payment screenshot is being verified. Room ID & Password
+                  will appear here once confirmed.
                 </p>
               </div>
             </div>
@@ -358,12 +505,12 @@ export function TournamentDetailPage() {
             <div className="flex items-start gap-3 p-4 bg-destructive/10 rounded border border-destructive/30">
               <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-destructive">
+                <p className="text-sm font-bold text-destructive">
                   Payment Rejected
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Your payment was not verified. Please contact support or
-                  re-upload a valid screenshot.
+                  submit a new registration.
                 </p>
               </div>
             </div>
@@ -371,43 +518,21 @@ export function TournamentDetailPage() {
         </motion.div>
       )}
 
-      {/* Join Flow - only show if not already registered and not ended */}
+      {/* Join Flow */}
       {!myRegistration && !isEnded && (
-        <div className="gaming-card rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <h2 className="font-display font-bold text-xl uppercase tracking-wider">
-              {isLoggedIn ? "Join Tournament" : "Login to Join"}
-            </h2>
-            {isLoggedIn && (
-              <div className="flex items-center gap-1">
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border ${
-                    step === 1
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-muted/50 text-muted-foreground border-border"
-                  }`}
-                >
-                  1
-                </div>
-                <div className="w-6 h-[1px] bg-border" />
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border ${
-                    step === 2
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-muted/50 text-muted-foreground border-border"
-                  }`}
-                >
-                  2
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="gaming-card rounded-lg p-6 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-neon-gold/50 to-transparent" />
 
           {!isLoggedIn ? (
-            <div className="text-center py-8">
-              <Trophy className="w-12 h-12 text-primary/40 mx-auto mb-4" />
-              <p className="text-muted-foreground mb-6">
-                You need to be logged in to register for this tournament.
+            /* Not logged in */
+            <div className="text-center py-10">
+              <Trophy className="w-12 h-12 text-primary/30 mx-auto mb-4" />
+              <h3 className="font-display font-bold text-lg mb-2 uppercase tracking-wider">
+                Login Required
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-xs mx-auto">
+                Login to register for this tournament and get your Room ID after
+                payment verification.
               </p>
               <Button
                 onClick={login}
@@ -419,118 +544,163 @@ export function TournamentDetailPage() {
             </div>
           ) : (
             <AnimatePresence mode="wait">
-              {step === 1 && (
+              {/* Step: Profile */}
+              {flowStep === "profile" && (
                 <motion.form
-                  key="step1"
+                  key="profile"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  onSubmit={handleStep1Submit}
-                  data-ocid="tournament.register_form"
-                  className="space-y-4"
+                  onSubmit={handleSaveProfile}
+                  className="space-y-5"
                 >
-                  <div className="mb-3">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                      Step 1 of 2 — Player Details
+                  <div>
+                    <h2 className="font-display font-bold text-lg uppercase tracking-wider mb-1">
+                      Complete Your Profile
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      We need your name and phone number before you can join a
+                      tournament.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                        Player Name *
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                        Your Name *
                       </Label>
-                      <Input
-                        placeholder="Your in-game name"
-                        value={formData.playerName}
-                        onChange={(e) =>
-                          setFormData((p) => ({
-                            ...p,
-                            playerName: e.target.value,
-                          }))
-                        }
-                        data-ocid="tournament.name_input"
-                        required
-                        className="bg-muted/30 border-border focus:border-primary/60"
-                      />
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
+                        <Input
+                          placeholder="Your full name"
+                          value={profileForm.name}
+                          onChange={(e) =>
+                            setProfileForm((p) => ({
+                              ...p,
+                              name: e.target.value,
+                            }))
+                          }
+                          data-ocid="profile.name_input"
+                          required
+                          className="bg-muted/20 border-border focus:border-primary/60 pl-9"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                        Email Address *
-                      </Label>
-                      <Input
-                        type="email"
-                        placeholder="you@example.com"
-                        value={formData.email}
-                        onChange={(e) =>
-                          setFormData((p) => ({ ...p, email: e.target.value }))
-                        }
-                        data-ocid="tournament.email_input"
-                        required
-                        className="bg-muted/30 border-border focus:border-primary/60"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                         Phone Number *
                       </Label>
-                      <Input
-                        type="tel"
-                        placeholder="+91 98765 43210"
-                        value={formData.phone}
-                        onChange={(e) =>
-                          setFormData((p) => ({ ...p, phone: e.target.value }))
-                        }
-                        data-ocid="tournament.phone_input"
-                        required
-                        className="bg-muted/30 border-border focus:border-primary/60"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                        BGMI In-Game ID *
-                      </Label>
-                      <Input
-                        placeholder="Your BGMI player ID"
-                        value={formData.bgmiId}
-                        onChange={(e) =>
-                          setFormData((p) => ({ ...p, bgmiId: e.target.value }))
-                        }
-                        data-ocid="tournament.bgmi_input"
-                        required
-                        className="bg-muted/30 border-border focus:border-primary/60"
-                      />
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
+                        <Input
+                          type="tel"
+                          placeholder="10-digit phone number"
+                          value={profileForm.phone}
+                          onChange={(e) =>
+                            setProfileForm((p) => ({
+                              ...p,
+                              phone: e.target.value,
+                            }))
+                          }
+                          data-ocid="profile.phone_input"
+                          required
+                          className="bg-muted/20 border-border focus:border-primary/60 pl-9"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="pt-2">
-                    <Button
-                      type="submit"
-                      className="neon-btn w-full md:w-auto px-8"
-                      data-ocid="tournament.submit_button"
-                    >
-                      Continue to Payment →
-                    </Button>
-                  </div>
+                  <Button
+                    type="submit"
+                    className="neon-btn"
+                    disabled={saveProfileMutation.isPending}
+                    data-ocid="profile.save_button"
+                  >
+                    {saveProfileMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : null}
+                    Save & Continue →
+                  </Button>
                 </motion.form>
               )}
 
-              {step === 2 && (
+              {/* Step: Details (Join button) */}
+              {flowStep === "details" && (
+                <motion.div
+                  key="details"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="space-y-5"
+                >
+                  <div>
+                    <h2 className="font-display font-bold text-lg uppercase tracking-wider mb-1">
+                      Ready to Join?
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      Hi{" "}
+                      <span className="text-primary font-bold">
+                        {userProfile?.name ?? profileForm.name}
+                      </span>
+                      ! Enter your BGMI ID and proceed to payment.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                      BGMI In-Game ID *
+                    </Label>
+                    <Input
+                      placeholder="Your BGMI player ID"
+                      value={formData.bgmiId}
+                      onChange={(e) =>
+                        setFormData((p) => ({ ...p, bgmiId: e.target.value }))
+                      }
+                      data-ocid="tournament.bgmi_input"
+                      className="bg-muted/20 border-border focus:border-primary/60"
+                    />
+                  </div>
+
+                  <Button
+                    className="neon-btn w-full sm:w-auto px-8"
+                    onClick={() => {
+                      if (!formData.bgmiId.trim()) {
+                        toast.error("Please enter your BGMI ID");
+                        return;
+                      }
+                      handleJoinClick();
+                    }}
+                    data-ocid="tournament.join_button"
+                  >
+                    <Zap className="w-4 h-4 mr-2" />
+                    Proceed to Payment
+                  </Button>
+                </motion.div>
+              )}
+
+              {/* Step: Payment */}
+              {flowStep === "payment" && (
                 <motion.form
-                  key="step2"
+                  key="payment"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   onSubmit={handleFinalSubmit}
                   className="space-y-5"
+                  data-ocid="tournament.payment_section"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                      Step 2 of 2 — Payment
-                    </p>
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <h2 className="font-display font-bold text-lg uppercase tracking-wider">
+                        Payment
+                      </h2>
+                      <p className="text-xs text-muted-foreground">
+                        Scan QR, pay, upload screenshot
+                      </p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setStep(1)}
+                      onClick={() => setFlowStep("details")}
                       className="text-xs text-muted-foreground hover:text-primary transition-colors"
                     >
                       ← Back
@@ -538,12 +708,18 @@ export function TournamentDetailPage() {
                   </div>
 
                   {/* Entry fee display */}
-                  <div className="p-4 bg-primary/10 border border-primary/30 rounded-lg">
+                  <div
+                    className="p-4 rounded-lg"
+                    style={{
+                      background: "oklch(0.86 0.22 198 / 0.08)",
+                      border: "1px solid oklch(0.86 0.22 198 / 0.3)",
+                    }}
+                  >
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground uppercase tracking-wider">
-                        Entry Fee to Pay
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">
+                        Amount to Pay
                       </span>
-                      <span className="font-display font-black text-2xl text-primary glow-text-cyan">
+                      <span className="font-display font-black text-3xl text-primary glow-text-cyan">
                         {tournament.entryFee === BigInt(0)
                           ? "FREE"
                           : `₹${tournament.entryFee}`}
@@ -552,56 +728,50 @@ export function TournamentDetailPage() {
                   </div>
 
                   {/* UPI QR section */}
-                  <div className="bg-muted/20 border border-border rounded-lg p-5">
+                  <div className="bg-muted/10 border border-border rounded-lg p-5">
                     <div className="flex items-center gap-2 mb-4">
                       <QrCode className="w-4 h-4 text-primary" />
-                      <h3 className="text-sm font-bold uppercase tracking-wider">
+                      <h3 className="text-xs font-bold uppercase tracking-wider">
                         UPI Payment
                       </h3>
                     </div>
 
-                    {tournament.upiQrImageId ? (
-                      <div className="flex justify-center mb-4">
-                        <div className="w-48 h-48 bg-white rounded-lg flex items-center justify-center overflow-hidden border-2 border-primary/30">
+                    <div className="flex justify-center mb-4">
+                      {tournament.upiQrImageId ? (
+                        <div className="w-52 h-52 bg-white rounded-xl flex items-center justify-center overflow-hidden border-4 border-primary/30 shadow-lg">
                           <img
                             src={tournament.upiQrImageId}
                             alt="UPI QR Code"
                             className="w-full h-full object-contain"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display =
-                                "none";
-                            }}
                           />
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex justify-center mb-4">
-                        <div className="w-48 h-48 bg-muted/30 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2">
-                          <QrCode className="w-10 h-10 text-muted-foreground/40" />
+                      ) : (
+                        <div className="w-52 h-52 bg-muted/20 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-3">
+                          <QrCode className="w-12 h-12 text-muted-foreground/30" />
                           <p className="text-xs text-muted-foreground text-center">
-                            QR Code will be provided by admin
+                            QR code provided by admin
                           </p>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
                     <p className="text-xs text-muted-foreground text-center">
-                      Scan the QR code and pay{" "}
+                      Scan and pay{" "}
                       <strong className="text-primary">
                         ₹{tournament.entryFee.toString()}
                       </strong>{" "}
-                      via UPI
+                      via UPI, then upload screenshot below
                     </p>
                   </div>
 
                   {/* Screenshot upload */}
                   <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                       Upload Payment Screenshot *
                     </Label>
                     <label
-                      className="block border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/60 transition-colors"
-                      data-ocid="payment.upload_button"
+                      className="block border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/60 transition-colors bg-muted/10"
+                      data-ocid="tournament.upload_button"
                     >
                       <input
                         ref={fileInputRef}
@@ -615,23 +785,23 @@ export function TournamentDetailPage() {
                           <img
                             src={screenshotPreview}
                             alt="Payment screenshot"
-                            className="max-h-32 rounded object-contain"
+                            className="max-h-36 rounded-lg object-contain border border-border"
                           />
-                          <p className="text-xs text-accent">
-                            {screenshotFile?.name}
+                          <p className="text-xs text-neon-green font-bold">
+                            ✓ {screenshotFile?.name}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Click to change
+                          <p className="text-[10px] text-muted-foreground">
+                            Tap to change
                           </p>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center gap-2">
-                          <Upload className="w-8 h-8 text-muted-foreground/60" />
+                          <Upload className="w-8 h-8 text-muted-foreground/40" />
                           <p className="text-sm text-muted-foreground">
                             Click to upload payment screenshot
                           </p>
-                          <p className="text-xs text-muted-foreground/60">
-                            PNG, JPG up to 5MB
+                          <p className="text-[10px] text-muted-foreground/50">
+                            PNG, JPG up to 10MB
                           </p>
                         </div>
                       )}
@@ -644,12 +814,12 @@ export function TournamentDetailPage() {
                       uploading || registerMutation.isPending || !screenshotFile
                     }
                     className="neon-btn w-full"
-                    data-ocid="payment.submit_button"
+                    data-ocid="tournament.submit_button"
                   >
                     {uploading || registerMutation.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Submitting...
+                        Submitting…
                       </>
                     ) : (
                       <>
@@ -660,22 +830,57 @@ export function TournamentDetailPage() {
                   </Button>
                 </motion.form>
               )}
+
+              {/* Step: Done */}
+              {flowStep === "done" && (
+                <motion.div
+                  key="done"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center py-8"
+                >
+                  <div
+                    className="w-16 h-16 rounded-full bg-neon-green/10 border border-neon-green/30 flex items-center justify-center mx-auto mb-4"
+                    style={{ boxShadow: "0 0 20px oklch(0.75 0.22 135 / 0.2)" }}
+                  >
+                    <CheckCircle className="w-8 h-8 text-neon-green glow-text-green" />
+                  </div>
+                  <h3 className="font-display font-black text-xl text-neon-green glow-text-green mb-2 uppercase tracking-wider">
+                    Registered!
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                    Your registration is submitted and awaiting payment
+                    verification.
+                    <br />
+                    <span className="text-primary font-bold">
+                      Room ID & Password will be revealed here once verified.
+                    </span>
+                  </p>
+                </motion.div>
+              )}
             </AnimatePresence>
           )}
         </div>
       )}
 
+      {/* Tournament ended state */}
       {isEnded && !myRegistration && (
         <div className="gaming-card rounded-lg p-8 text-center">
-          <Trophy className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-          <h3 className="font-display font-bold text-lg text-muted-foreground mb-1">
+          <Trophy className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+          <h3 className="font-display font-bold text-lg text-muted-foreground mb-1 uppercase tracking-wider">
             Tournament {tournament.status}
           </h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Registration is closed for this tournament.
           </p>
         </div>
       )}
+
+      {/* Full tournament dialog */}
+      <FullTournamentDialog
+        open={fullDialogOpen}
+        onClose={() => setFullDialogOpen(false)}
+      />
     </div>
   );
 }

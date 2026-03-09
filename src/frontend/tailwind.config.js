@@ -17,7 +17,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['"Outfit"', "sans-serif"],
-        display: ['"Bricolage Grotesque"', "sans-serif"],
+        display: ['"Mona Sans"', '"Bricolage Grotesque"', "sans-serif"],
         mono: ['"Geist Mono"', "monospace"],
       },
       colors: {
@@ -72,8 +72,10 @@ export default {
           ring: "oklch(var(--sidebar-ring))",
         },
         neon: {
-          cyan: "#00f5ff",
-          green: "#39ff14",
+          cyan: "oklch(0.86 0.22 198)",
+          purple: "oklch(0.68 0.28 285)",
+          gold: "oklch(0.78 0.19 55)",
+          green: "oklch(0.75 0.22 135)",
         },
       },
       borderRadius: {

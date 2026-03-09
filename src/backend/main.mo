@@ -2,22 +2,33 @@ import Text "mo:core/Text";
 import Array "mo:core/Array";
 import Map "mo:core/Map";
 import Iter "mo:core/Iter";
-import Runtime "mo:core/Runtime";
 import List "mo:core/List";
 import Time "mo:core/Time";
 import Order "mo:core/Order";
+import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 import AccessControl "authorization/access-control";
 
+
+// Specify the data migration function in with-clause
+
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
   include MixinStorage();
 
-  type TournamentStatus = {
+  // Types
+  public type Phone = Text;
+  public type UserProfile = {
+    name : Text;
+    phone : Phone; // Use Phone type for phone field
+  };
+
+  // Tournament Status Enum
+  public type TournamentStatus = {
     #Upcoming;
     #Live;
     #Completed;
@@ -25,17 +36,8 @@ actor {
   };
 
   module TournamentStatus {
-    public func toText(status : TournamentStatus) : Text {
-      switch (status) {
-        case (#Upcoming) { "Upcoming" };
-        case (#Live) { "Live" };
-        case (#Completed) { "Completed" };
-        case (#Cancelled) { "Cancelled" };
-      };
-    };
-
-    public func compare(status1 : TournamentStatus, status2 : TournamentStatus) : Order.Order {
-      let _toNat = func(status : TournamentStatus) : Nat {
+    public func compare(a : TournamentStatus, b : TournamentStatus) : Order.Order {
+      let toNat = func(status : TournamentStatus) : Nat {
         switch (status) {
           case (#Upcoming) { 0 };
           case (#Live) { 1 };
@@ -43,11 +45,12 @@ actor {
           case (#Cancelled) { 3 };
         };
       };
-      Nat.compare(_toNat(status1), _toNat(status2));
+      Nat.compare(toNat(a), toNat(b));
     };
   };
 
-  type Tournament = {
+  // Tournament Record
+  public type Tournament = {
     id : Text;
     name : Text;
     description : Text;
@@ -62,90 +65,61 @@ actor {
     createdAt : Int;
   };
 
-  module Tournament {
-    public func compare(t1 : Tournament, t2 : Tournament) : Order.Order {
-      Int.compare(t1.startTime, t2.startTime);
-    };
-  };
-
   let tournaments = Map.empty<Text, Tournament>();
 
-  type PaymentStatus = {
+  // Payment Status Enum
+  public type PaymentStatus = {
     #Pending;
     #Verified;
     #Rejected;
   };
 
   module PaymentStatus {
-    public func toText(status : PaymentStatus) : Text {
-      switch (status) {
-        case (#Pending) { "Pending" };
-        case (#Verified) { "Verified" };
-        case (#Rejected) { "Rejected" };
-      };
-    };
-
-    public func compare(status1 : PaymentStatus, status2 : PaymentStatus) : Order.Order {
-      let _toNat = func(status : PaymentStatus) : Nat {
+    public func compare(a : PaymentStatus, b : PaymentStatus) : Order.Order {
+      let toNat = func(status : PaymentStatus) : Nat {
         switch (status) {
           case (#Pending) { 0 };
           case (#Verified) { 1 };
           case (#Rejected) { 2 };
         };
       };
-      Nat.compare(_toNat(status1), _toNat(status2));
+      Nat.compare(toNat(a), toNat(b));
     };
   };
 
-  type Registration = {
+  // Registration Record
+  public type Registration = {
     id : Text;
     tournamentId : Text;
     playerId : Principal;
     playerName : Text;
-    email : Text;
-    phone : Text;
+    phone : Phone; // Use Phone type for phone field
     bgmiId : Text;
     paymentScreenshotId : Text;
     paymentStatus : PaymentStatus;
     registeredAt : Int;
   };
 
-  module Registration {
-    public func compare(r1 : Registration, r2 : Registration) : Order.Order {
-      Int.compare(r1.registeredAt, r2.registeredAt);
-    };
-  };
-
   let registrations = Map.empty<Text, Registration>();
-
-  type PaymentStatusUpdate = {
-    registrationId : Text;
-    newStatus : PaymentStatus;
-  };
-
-  public type UserProfile = {
-    name : Text;
-  };
-
   let userProfiles = Map.empty<Principal, UserProfile>();
 
+  // ID Generator
   let idGenerator = { var counter = 0 };
 
   func generateId() : Text {
-    let id = idGenerator.counter;
     idGenerator.counter += 1;
-    Nat.toText(id);
+    idGenerator.counter.toText();
   };
 
+  // Helper Functions
   func isPlayerVerifiedForTournament(playerId : Principal, tournamentId : Text) : Bool {
-    let playerRegs = registrations.values().toArray().filter(
-      func(reg : Registration) : Bool {
-        Principal.equal(reg.playerId, playerId) and reg.tournamentId == tournamentId and reg.paymentStatus == #Verified
-      }
-    );
-    playerRegs.size() > 0;
+    let playerRegs = registrations.values().toArray().filter(func(reg) {
+      Principal.equal(reg.playerId, playerId) and reg.tournamentId == tournamentId and reg.paymentStatus == #Verified
+    });
+    not playerRegs.isEmpty();
   };
 
+  // User Profile Functions
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can access profiles");
@@ -154,7 +128,7 @@ actor {
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (not Principal.equal(caller, user) and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own profile");
     };
     userProfiles.get(user);
@@ -167,6 +141,7 @@ actor {
     userProfiles.add(caller, profile);
   };
 
+  // Tournament Management Functions
   public shared ({ caller }) func createTournament(
     name : Text,
     description : Text,
@@ -181,7 +156,6 @@ actor {
     };
 
     let tournamentId = generateId();
-
     let newTournament : Tournament = {
       id = tournamentId;
       name;
@@ -238,30 +212,62 @@ actor {
     };
   };
 
+  public shared ({ caller }) func cancelTournament(id : Text) : async () {
+    if (not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Only admins can cancel tournaments");
+    };
+
+    switch (tournaments.get(id)) {
+      case (null) { Runtime.trap("Tournament not found") };
+      case (?tournament) {
+        let updatedTournament : Tournament = {
+          id = tournament.id;
+          name = tournament.name;
+          description = tournament.description;
+          prizePool = tournament.prizePool;
+          entryFee = tournament.entryFee;
+          maxSlots = tournament.maxSlots;
+          startTime = tournament.startTime;
+          status = #Cancelled;
+          upiQrImageId = tournament.upiQrImageId;
+          roomId = tournament.roomId;
+          roomPassword = tournament.roomPassword;
+          createdAt = tournament.createdAt;
+        };
+        tournaments.add(id, updatedTournament);
+      };
+    };
+  };
+
   public shared ({ caller }) func deleteTournament(id : Text) : async () {
     if (not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Only admins can delete tournaments");
     };
 
-    switch (tournaments.get(id)) {
-      case (null) { Runtime.trap("Tournament not found") };
-      case (?_) {
-        tournaments.remove(id);
-      };
+    if (not tournaments.containsKey(id)) {
+      Runtime.trap("Tournament not found");
     };
+    tournaments.remove(id);
   };
 
-  public query ({ caller }) func getTournament(id : Text) : async Tournament {
-    switch (tournaments.get(id)) {
-      case (null) { Runtime.trap("Tournament not found") };
-      case (?tournament) {
-        let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-        let isVerified = isPlayerVerifiedForTournament(caller, id);
+  public query ({ caller }) func listTournaments() : async [Tournament] {
+    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
 
-        if (isAdmin or isVerified) {
-          return tournament;
+    let allTournaments = tournaments.values().toArray().sort(
+      func(a, b) { Nat.compare(a.startTime.toNat(), b.startTime.toNat()) }
+    );
+
+    if (isAdmin) {
+      return allTournaments;
+    };
+
+    allTournaments.map(
+      func(tournament) {
+        let isVerified = isPlayerVerifiedForTournament(caller, tournament.id);
+        if (isVerified) {
+          tournament;
         } else {
-          let tournamentWithoutSensitive : Tournament = {
+          {
             id = tournament.id;
             name = tournament.name;
             description = tournament.description;
@@ -275,52 +281,45 @@ actor {
             roomPassword = null;
             createdAt = tournament.createdAt;
           };
-          return tournamentWithoutSensitive;
+        };
+      }
+    );
+  };
+
+  public query ({ caller }) func getTournament(id : Text) : async Tournament {
+    switch (tournaments.get(id)) {
+      case (null) { Runtime.trap("Tournament not found") };
+      case (?tournament) {
+        let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+        let isVerified = isPlayerVerifiedForTournament(caller, id);
+
+        if (isAdmin or isVerified) {
+          tournament;
+        } else {
+          {
+            id = tournament.id;
+            name = tournament.name;
+            description = tournament.description;
+            prizePool = tournament.prizePool;
+            entryFee = tournament.entryFee;
+            maxSlots = tournament.maxSlots;
+            startTime = tournament.startTime;
+            status = tournament.status;
+            upiQrImageId = tournament.upiQrImageId;
+            roomId = null;
+            roomPassword = null;
+            createdAt = tournament.createdAt;
+          };
         };
       };
     };
   };
 
-  public query ({ caller }) func listTournaments() : async [Tournament] {
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
-
-    let allTournaments = tournaments.values().toArray();
-
-    if (isAdmin) {
-      return allTournaments.sort();
-    } else {
-      let sanitizedTournaments = allTournaments.map(
-        func(tournament : Tournament) : Tournament {
-          let isVerified = isPlayerVerifiedForTournament(caller, tournament.id);
-          if (isVerified) {
-            return tournament;
-          } else {
-            return {
-              id = tournament.id;
-              name = tournament.name;
-              description = tournament.description;
-              prizePool = tournament.prizePool;
-              entryFee = tournament.entryFee;
-              maxSlots = tournament.maxSlots;
-              startTime = tournament.startTime;
-              status = tournament.status;
-              upiQrImageId = tournament.upiQrImageId;
-              roomId = null;
-              roomPassword = null;
-              createdAt = tournament.createdAt;
-            };
-          };
-        }
-      );
-      return sanitizedTournaments.sort();
-    };
-  };
-
+  // Registration Functions
   public shared ({ caller }) func registerForTournament(
     tournamentId : Text,
     playerName : Text,
-    email : Text,
-    phone : Text,
+    phone : Phone,
     bgmiId : Text,
     paymentScreenshotId : Text,
   ) : async Text {
@@ -335,19 +334,15 @@ actor {
           Runtime.trap("Tournament is not open for registration");
         };
 
-        let tournamentRegistrations = registrations.values().toArray().filter(
-          func(reg : Registration) : Bool { reg.tournamentId == tournamentId }
-        );
+        let tournamentRegistrations = registrations.values().toArray().filter(func(reg) {
+          reg.tournamentId == tournamentId;
+        });
 
         if (tournamentRegistrations.size() >= tournament.maxSlots) {
           Runtime.trap("Tournament is full");
         };
 
-        let playerRegistrations = tournamentRegistrations.filter(
-          func(reg : Registration) : Bool { Principal.equal(reg.playerId, caller) }
-        );
-
-        if (playerRegistrations.size() > 0) {
+        if (tournamentRegistrations.any(func(reg) { Principal.equal(reg.playerId, caller) })) {
           Runtime.trap("Player is already registered for this tournament");
         };
 
@@ -357,7 +352,6 @@ actor {
           tournamentId;
           playerId = caller;
           playerName;
-          email;
           phone;
           bgmiId;
           paymentScreenshotId;
@@ -375,7 +369,16 @@ actor {
     switch (registrations.get(registrationId)) {
       case (null) { Runtime.trap("Registration not found") };
       case (?registration) {
-        if (not Principal.equal(registration.playerId, caller) and not AccessControl.isAdmin(accessControlState, caller)) {
+        let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+        let isOwner = Principal.equal(registration.playerId, caller);
+        
+        // Ensure caller is at least a user (not a guest) or an admin
+        if (not isAdmin and not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+          Runtime.trap("Unauthorized: Only users can update payment screenshots");
+        };
+        
+        // Verify ownership or admin status
+        if (not isOwner and not isAdmin) {
           Runtime.trap("Unauthorized: Only the player or admin can update payment screenshot");
         };
 
@@ -384,7 +387,6 @@ actor {
           tournamentId = registration.tournamentId;
           playerId = registration.playerId;
           playerName = registration.playerName;
-          email = registration.email;
           phone = registration.phone;
           bgmiId = registration.bgmiId;
           paymentScreenshotId;
@@ -397,13 +399,13 @@ actor {
     };
   };
 
-  public shared ({ caller }) func updatePaymentStatus(updates : [PaymentStatusUpdate]) : async () {
+  public shared ({ caller }) func updatePaymentStatus(updates : [(Text, PaymentStatus)]) : async () {
     if (not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Only admins can update payment status");
     };
 
-    for (update in updates.values()) {
-      switch (registrations.get(update.registrationId)) {
+    for ((registrationId, newStatus) in updates.values()) {
+      switch (registrations.get(registrationId)) {
         case (null) { Runtime.trap("Registration not found") };
         case (?registration) {
           let updatedRegistration : Registration = {
@@ -411,24 +413,19 @@ actor {
             tournamentId = registration.tournamentId;
             playerId = registration.playerId;
             playerName = registration.playerName;
-            email = registration.email;
             phone = registration.phone;
             bgmiId = registration.bgmiId;
             paymentScreenshotId = registration.paymentScreenshotId;
-            paymentStatus = update.newStatus;
+            paymentStatus = newStatus;
             registeredAt = registration.registeredAt;
           };
-          registrations.add(update.registrationId, updatedRegistration);
+          registrations.add(registrationId, updatedRegistration);
         };
       };
     };
   };
 
-  public shared ({ caller }) func setRoomDetails(
-    tournamentId : Text,
-    roomId : Text,
-    roomPassword : Text,
-  ) : async () {
+  public shared ({ caller }) func setRoomDetails(tournamentId : Text, roomId : Text, roomPassword : Text) : async () {
     if (not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Only admins can set room details");
     };
@@ -460,9 +457,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can view their registrations");
     };
 
-    registrations.values().toArray().filter(
-      func(reg : Registration) : Bool { Principal.equal(reg.playerId, caller) }
-    );
+    registrations.values().toArray().filter(func(reg) { Principal.equal(reg.playerId, caller) });
   };
 
   public query ({ caller }) func getTournamentRegistrations(tournamentId : Text) : async [Registration] {
@@ -470,8 +465,6 @@ actor {
       Runtime.trap("Unauthorized: Only admins can view tournament registrations");
     };
 
-    registrations.values().toArray().filter(
-      func(reg : Registration) : Bool { reg.tournamentId == tournamentId }
-    );
+    registrations.values().toArray().filter(func(reg) { reg.tournamentId == tournamentId });
   };
 };
