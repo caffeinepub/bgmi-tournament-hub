@@ -1,12 +1,14 @@
 import { Toaster } from "@/components/ui/sonner";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { Outlet, createRootRoute, createRoute } from "@tanstack/react-router";
+import { AccountSetupModal } from "./components/AccountSetupModal";
 import { Footer } from "./components/Footer";
 import { Navbar } from "./components/Navbar";
 import { AdminPage } from "./pages/AdminPage";
 import { HomePage } from "./pages/HomePage";
 import { MyRegistrationsPage } from "./pages/MyRegistrationsPage";
 import { TournamentDetailPage } from "./pages/TournamentDetailPage";
+import { WalletPage } from "./pages/WalletPage";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -16,6 +18,7 @@ const rootRoute = createRootRoute({
         <Outlet />
       </main>
       <Footer />
+      <AccountSetupModal />
       <Toaster
         theme="dark"
         toastOptions={{
@@ -48,6 +51,12 @@ const myRegistrationsRoute = createRoute({
   component: MyRegistrationsPage,
 });
 
+const walletRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/wallet",
+  component: WalletPage,
+});
+
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
@@ -58,6 +67,7 @@ const routeTree = rootRoute.addChildren([
   homeRoute,
   tournamentDetailRoute,
   myRegistrationsRoute,
+  walletRoute,
   adminRoute,
 ]);
 

@@ -10,6 +10,8 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export type GameType = { 'BGMI' : null } |
+  { 'FreeFire' : null };
 export type PaymentStatus = { 'Rejected' : null } |
   { 'Verified' : null } |
   { 'Pending' : null };
@@ -19,9 +21,9 @@ export interface Registration {
   'paymentStatus' : PaymentStatus,
   'playerId' : Principal,
   'paymentScreenshotId' : string,
+  'gamePlayerId' : string,
   'playerName' : string,
   'phone' : Phone,
-  'bgmiId' : string,
   'registeredAt' : bigint,
   'tournamentId' : string,
 }
@@ -30,20 +32,47 @@ export interface Tournament {
   'startTime' : bigint,
   'status' : TournamentStatus,
   'upiQrImageId' : string,
+  'thirdPrize' : bigint,
   'maxSlots' : bigint,
   'name' : string,
   'createdAt' : bigint,
+  'secondPrize' : bigint,
   'description' : string,
   'roomPassword' : [] | [string],
+  'gameType' : GameType,
   'entryFee' : bigint,
   'roomId' : [] | [string],
-  'prizePool' : string,
+  'prizePool' : bigint,
 }
 export type TournamentStatus = { 'Live' : null } |
   { 'Cancelled' : null } |
   { 'Completed' : null } |
   { 'Upcoming' : null };
-export interface UserProfile { 'name' : string, 'phone' : Phone }
+export interface Transaction {
+  'id' : string,
+  'status' : TransactionStatus,
+  'userId' : Principal,
+  'createdAt' : bigint,
+  'description' : string,
+  'txType' : TransactionType,
+  'screenshotId' : string,
+  'amount' : bigint,
+}
+export type TransactionStatus = { 'Rejected' : null } |
+  { 'Completed' : null } |
+  { 'Pending' : null };
+export type TransactionType = { 'Withdrawal' : null } |
+  { 'CashAdded' : null } |
+  { 'PrizeWon' : null } |
+  { 'MatchJoined' : null };
+export type UpiId = string;
+export interface UserProfile {
+  'name' : string,
+  'winningsBalance' : bigint,
+  'upiId' : UpiId,
+  'phone' : Phone,
+  'walletBalance' : bigint,
+}
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
@@ -75,26 +104,49 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'adminApproveAddCash' : ActorMethod<[string], undefined>,
+  'adminApproveWithdrawal' : ActorMethod<[string], undefined>,
+  'adminCreditPrize' : ActorMethod<[Principal, bigint, string], undefined>,
+  'adminRejectAddCash' : ActorMethod<[string], undefined>,
+  'adminRejectWithdrawal' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'cancelTournament' : ActorMethod<[string], undefined>,
   'createTournament' : ActorMethod<
-    [string, string, string, bigint, bigint, bigint, string],
+    [
+      string,
+      string,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      bigint,
+      string,
+      GameType,
+    ],
     string
   >,
+  'creditWalletBalance' : ActorMethod<[Principal, bigint], undefined>,
   'deleteTournament' : ActorMethod<[string], undefined>,
+  'getAllUsersWithPrincipal' : ActorMethod<[], Array<[Principal, UserProfile]>>,
   'getCallerRegistrations' : ActorMethod<[], Array<Registration>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getMyTransactions' : ActorMethod<[], Array<Transaction>>,
+  'getPendingTransactions' : ActorMethod<[], Array<Transaction>>,
   'getTournament' : ActorMethod<[string], Tournament>,
   'getTournamentRegistrations' : ActorMethod<[string], Array<Registration>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
-  'listTournaments' : ActorMethod<[], Array<Tournament>>,
+  'joinTournamentWithWallet' : ActorMethod<[string, string], string>,
+  'listTournamentsByGameType' : ActorMethod<[GameType], Array<Tournament>>,
   'registerForTournament' : ActorMethod<
     [string, string, Phone, string, string],
     string
   >,
-  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'requestAddCash' : ActorMethod<[bigint, string], string>,
+  'requestWithdrawal' : ActorMethod<[string, bigint], string>,
+  'saveCallerUserProfile' : ActorMethod<[string, Phone, UpiId], undefined>,
   'setRoomDetails' : ActorMethod<[string, string, string], undefined>,
   'updatePaymentScreenshot' : ActorMethod<[string, string], undefined>,
   'updatePaymentStatus' : ActorMethod<
@@ -106,12 +158,15 @@ export interface _SERVICE {
       string,
       string,
       string,
-      string,
+      bigint,
+      bigint,
+      bigint,
       bigint,
       bigint,
       bigint,
       TournamentStatus,
       string,
+      GameType,
     ],
     undefined
   >,

@@ -384,3 +384,62 @@
 .flicker { animation: flicker 4s infinite; }
 .animate-neon-border { animation: neon-border-glow 2.5s ease-in-out infinite; }
 .animate-pulse-gold { animation: pulse-gold 1.5s ease-in-out infinite; }
+
+@layer utilities {
+  /* === Free Fire Orange Neon === */
+  .glow-text-ff {
+    text-shadow: 0 0 10px oklch(0.75 0.22 52 / 0.9),
+      0 0 20px oklch(0.75 0.22 52 / 0.5), 0 0 40px oklch(0.75 0.22 52 / 0.25);
+  }
+
+  .glow-border-ff {
+    box-shadow: 0 0 0 1px oklch(0.75 0.22 52 / 0.45),
+      0 0 18px oklch(0.75 0.22 52 / 0.2), inset 0 0 18px oklch(0.75 0.22 52 / 0.05);
+  }
+
+  .neon-btn-ff {
+    background: linear-gradient(135deg, oklch(0.75 0.22 52) 0%, oklch(0.65 0.20 48) 100%);
+    color: oklch(0.06 0.012 255);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    box-shadow: 0 0 18px oklch(0.75 0.22 52 / 0.45),
+      0 0 35px oklch(0.75 0.22 52 / 0.2),
+      inset 0 1px 0 oklch(1 0 0 / 0.15);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .neon-btn-ff:hover:not(:disabled) {
+    box-shadow: 0 0 25px oklch(0.75 0.22 52 / 0.65),
+      0 0 50px oklch(0.75 0.22 52 / 0.3),
+      inset 0 1px 0 oklch(1 0 0 / 0.2);
+    transform: translateY(-1px);
+  }
+
+  /* === Free Fire game card === */
+  .gaming-card-ff {
+    background: linear-gradient(
+      135deg,
+      oklch(0.10 0.020 55) 0%,
+      oklch(0.085 0.015 50) 100%
+    );
+    border: 1px solid oklch(0.75 0.22 52 / 0.2);
+    box-shadow: 0 0 0 1px oklch(0.75 0.22 52 / 0.08),
+      0 4px 32px oklch(0.04 0.01 255 / 0.85),
+      inset 0 1px 0 oklch(0.75 0.22 52 / 0.06);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .gaming-card-ff:hover {
+    border-color: oklch(0.75 0.22 52 / 0.45);
+    box-shadow: 0 0 0 1px oklch(0.75 0.22 52 / 0.2),
+      0 0 25px oklch(0.75 0.22 52 / 0.12),
+      0 8px 40px oklch(0.04 0.01 255 / 0.9),
+      inset 0 1px 0 oklch(0.75 0.22 52 / 0.1);
+    transform: translateY(-2px);
+  }
+
+  /* Neon cyan as named var */
+  .neon-cyan { color: oklch(0.86 0.22 198); }
+  .neon-ff { color: oklch(0.75 0.22 52); }
+}

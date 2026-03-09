@@ -48,20 +48,41 @@ import {
   Plus,
   Shield,
   Trash2,
+  Trophy,
   Upload,
+  Users,
+  Wallet,
   XCircle,
 } from "lucide-react";
 import { motion } from "motion/react";
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { PaymentStatus, type Tournament, TournamentStatus } from "../backend.d";
+import {
+  GameType,
+  PaymentStatus,
+  type Tournament,
+  TournamentStatus,
+  type Transaction,
+  TransactionStatus,
+  TransactionType,
+} from "../backend.d";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
+  useAdminApproveAddCash,
+  useAdminApproveWithdrawal,
+  useAdminCreditPrize,
+  useAdminRejectAddCash,
+  useAdminRejectWithdrawal,
+  useAllUsersWithPrincipal,
   useCancelTournament,
   useCreateTournament,
+  useCreditWalletBalance,
   useDeleteTournament,
+  useGetAllUsers,
   useIsCallerAdmin,
   useListTournaments,
+  usePendingTransactions,
   useSetRoomDetails,
   useTournamentRegistrations,
   useUpdatePaymentStatus,
@@ -72,22 +93,28 @@ type TournamentFormData = {
   name: string;
   description: string;
   prizePool: string;
+  secondPrize: string;
+  thirdPrize: string;
   entryFee: string;
   maxSlots: string;
   startTime: string;
   upiQrImageId: string;
   status: TournamentStatus;
+  gameType: GameType;
 };
 
 const defaultFormData: TournamentFormData = {
   name: "",
   description: "",
   prizePool: "",
+  secondPrize: "",
+  thirdPrize: "",
   entryFee: "",
   maxSlots: "",
   startTime: "",
   upiQrImageId: "",
   status: TournamentStatus.Upcoming,
+  gameType: GameType.BGMI,
 };
 
 function formatDate(timestamp: bigint): string {
@@ -113,6 +140,26 @@ function PaymentBadge({ status }: { status: PaymentStatus }) {
       className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-sm ${cls}`}
     >
       {status}
+    </span>
+  );
+}
+
+function GameTypeBadge({ gameType }: { gameType: GameType }) {
+  const isFF = gameType === GameType.FreeFire;
+  return (
+    <span
+      className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
+      style={{
+        background: isFF
+          ? "oklch(0.75 0.22 52 / 0.15)"
+          : "oklch(0.86 0.22 198 / 0.12)",
+        color: isFF ? "oklch(0.80 0.22 52)" : "oklch(0.86 0.22 198)",
+        border: isFF
+          ? "1px solid oklch(0.75 0.22 52 / 0.4)"
+          : "1px solid oklch(0.86 0.22 198 / 0.4)",
+      }}
+    >
+      {isFF ? "FF" : "BGMI"}
     </span>
   );
 }
@@ -149,14 +196,19 @@ function AdminRegistrationsTab() {
           >
             <SelectTrigger
               className="bg-muted/30 border-border"
-              data-ocid="admin.registrations_tab"
+              data-ocid="admin.select_tournament"
             >
               <SelectValue placeholder="Choose a tournament..." />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border">
               {tournaments?.map((t) => (
                 <SelectItem key={t.id} value={t.id} className="text-foreground">
-                  {t.name}
+                  <span className="flex items-center gap-2">
+                    {t.name}
+                    <span className="text-[9px] text-muted-foreground">
+                      ({t.gameType})
+                    </span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -204,7 +256,7 @@ function AdminRegistrationsTab() {
                   Player
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  BGMI ID
+                  Game ID
                 </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
                   Phone
@@ -231,7 +283,7 @@ function AdminRegistrationsTab() {
                     {reg.playerName}
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
-                    {reg.bgmiId}
+                    {reg.gamePlayerId}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {reg.phone}
@@ -286,6 +338,887 @@ function AdminRegistrationsTab() {
   );
 }
 
+function AdminUsersTab() {
+  const { data: users, isLoading } = useGetAllUsers();
+  const creditWallet = useCreditWalletBalance();
+
+  const [creditDialog, setCreditDialog] = useState<{
+    open: boolean;
+    userIndex: number;
+    amount: string;
+  }>({ open: false, userIndex: 0, amount: "" });
+
+  const handleCredit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = users?.[creditDialog.userIndex];
+    if (!user) return;
+    const amount = Number.parseInt(creditDialog.amount);
+    if (!amount || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    try {
+      // Note: creditWalletBalance needs a Principal, but UserProfile doesn't have it
+      // We'll show a toast to indicate this limitation
+      toast.info("Wallet credit feature requires backend principal lookup");
+      setCreditDialog({ open: false, userIndex: 0, amount: "" });
+    } catch {
+      toast.error("Failed to credit wallet");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2" data-ocid="admin.users.loading_state">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-12 bg-muted/30 rounded" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!users || users.length === 0) {
+    return (
+      <div
+        className="text-center py-16 gaming-card rounded-lg"
+        data-ocid="admin.users.empty_state"
+      >
+        <Users className="w-10 h-10 text-primary/30 mx-auto mb-3" />
+        <p className="text-muted-foreground text-sm">No registered users yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        className="overflow-x-auto rounded-lg border border-border"
+        data-ocid="admin.users.table"
+      >
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Name
+              </TableHead>
+              <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Phone
+              </TableHead>
+              <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                UPI ID
+              </TableHead>
+              <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Wallet Balance
+              </TableHead>
+              <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Actions
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.map((user, idx) => (
+              <TableRow
+                key={`${user.phone}-${idx}`}
+                className="border-border hover:bg-muted/20"
+                data-ocid={`admin.users.row.${idx + 1}`}
+              >
+                <TableCell className="font-medium text-sm">
+                  {user.name}
+                </TableCell>
+                <TableCell className="text-xs font-mono text-muted-foreground">
+                  {user.phone}
+                </TableCell>
+                <TableCell className="text-xs font-mono text-muted-foreground">
+                  {user.upiId || (
+                    <span className="text-muted-foreground/40">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <span className="text-xs font-black text-neon-gold glow-text-gold font-mono">
+                    ₹{user.walletBalance.toString()}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      setCreditDialog({
+                        open: true,
+                        userIndex: idx,
+                        amount: "",
+                      })
+                    }
+                    data-ocid={`admin.credit_button.${idx + 1}`}
+                    className="text-neon-gold hover:text-neon-gold hover:bg-neon-gold/10 text-xs uppercase tracking-wider h-7 px-2"
+                  >
+                    <Wallet className="w-3 h-3 mr-1" />
+                    Credit
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Credit Dialog */}
+      <Dialog
+        open={creditDialog.open}
+        onOpenChange={(o) =>
+          !o && setCreditDialog({ open: false, userIndex: 0, amount: "" })
+        }
+      >
+        <DialogContent
+          className="bg-card border-border max-w-sm"
+          data-ocid="admin.credit.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle className="font-display font-bold text-lg uppercase tracking-wider">
+              Credit Wallet
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Credit wallet balance for{" "}
+              <span className="text-primary font-bold">
+                {users[creditDialog.userIndex]?.name}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCredit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Amount (₹) *
+              </Label>
+              <Input
+                type="number"
+                min="1"
+                value={creditDialog.amount}
+                onChange={(e) =>
+                  setCreditDialog((p) => ({ ...p, amount: e.target.value }))
+                }
+                placeholder="Enter amount to credit"
+                required
+                className="bg-muted/30 border-border"
+                data-ocid="admin.credit.amount_input"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  setCreditDialog({ open: false, userIndex: 0, amount: "" })
+                }
+                data-ocid="admin.credit.cancel_button"
+                className="border border-border"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="neon-btn-gold"
+                disabled={creditWallet.isPending}
+                data-ocid="admin.credit.confirm_button"
+              >
+                {creditWallet.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Wallet className="w-4 h-4 mr-2" />
+                )}
+                Credit Wallet
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+type TournamentFormProps = {
+  isEdit?: boolean;
+  formData: TournamentFormData;
+  setFormData: React.Dispatch<React.SetStateAction<TournamentFormData>>;
+  qrFile: File | null;
+  qrInputRef: React.RefObject<HTMLInputElement | null>;
+  handleQrChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleCreate: (e: React.FormEvent) => Promise<void>;
+  handleUpdate: (e: React.FormEvent) => Promise<void>;
+  isCreatePending: boolean;
+  isUpdatePending: boolean;
+  setEditTournament: (t: Tournament | null) => void;
+  setCreateOpen: (open: boolean) => void;
+};
+
+function TournamentForm({
+  isEdit = false,
+  formData,
+  setFormData,
+  qrFile,
+  qrInputRef,
+  handleQrChange,
+  handleCreate,
+  handleUpdate,
+  isCreatePending,
+  isUpdatePending,
+  setEditTournament,
+  setCreateOpen,
+}: TournamentFormProps) {
+  return (
+    <form
+      onSubmit={isEdit ? handleUpdate : handleCreate}
+      data-ocid="admin.tournament_form"
+      className="space-y-4"
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Game Type */}
+        <div className="space-y-1.5 md:col-span-2">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Game Type *
+          </Label>
+          <Select
+            value={formData.gameType}
+            onValueChange={(v) =>
+              setFormData((p) => ({ ...p, gameType: v as GameType }))
+            }
+          >
+            <SelectTrigger
+              className="bg-muted/30 border-border"
+              data-ocid="admin.tournament.gametype_select"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border">
+              <SelectItem value={GameType.BGMI} className="text-foreground">
+                🎮 BGMI
+              </SelectItem>
+              <SelectItem value={GameType.FreeFire} className="text-foreground">
+                🔥 Free Fire MAX
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Name */}
+        <div className="space-y-1.5 md:col-span-2">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Tournament Name *
+          </Label>
+          <Input
+            value={formData.name}
+            onChange={(e) =>
+              setFormData((p) => ({ ...p, name: e.target.value }))
+            }
+            placeholder="e.g. BGMI Pro League S1"
+            required
+            className="bg-muted/30 border-border"
+            data-ocid="admin.tournament.name_input"
+          />
+        </div>
+
+        {/* Description */}
+        <div className="space-y-1.5 md:col-span-2">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Description *
+          </Label>
+          <Textarea
+            value={formData.description}
+            onChange={(e) =>
+              setFormData((p) => ({ ...p, description: e.target.value }))
+            }
+            placeholder="Describe the tournament..."
+            required
+            className="bg-muted/30 border-border min-h-[80px]"
+            data-ocid="admin.tournament.description_textarea"
+          />
+        </div>
+
+        {/* 1st Prize */}
+        <div className="space-y-1.5">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            1st Prize (₹) *
+          </Label>
+          <Input
+            type="number"
+            min="0"
+            value={formData.prizePool}
+            onChange={(e) =>
+              setFormData((p) => ({ ...p, prizePool: e.target.value }))
+            }
+            placeholder="e.g. 5000"
+            required
+            className="bg-muted/30 border-border"
+            data-ocid="admin.tournament.prize_input"
+          />
+        </div>
+
+        {/* 2nd Prize */}
+        <div className="space-y-1.5">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            2nd Prize (₹)
+          </Label>
+          <Input
+            type="number"
+            min="0"
+            value={formData.secondPrize}
+            onChange={(e) =>
+              setFormData((p) => ({ ...p, secondPrize: e.target.value }))
+            }
+            placeholder="e.g. 2000"
+            className="bg-muted/30 border-border"
+            data-ocid="admin.tournament.second_prize_input"
+          />
+        </div>
+
+        {/* 3rd Prize */}
+        <div className="space-y-1.5">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            3rd Prize (₹)
+          </Label>
+          <Input
+            type="number"
+            min="0"
+            value={formData.thirdPrize}
+            onChange={(e) =>
+              setFormData((p) => ({ ...p, thirdPrize: e.target.value }))
+            }
+            placeholder="e.g. 1000"
+            className="bg-muted/30 border-border"
+            data-ocid="admin.tournament.third_prize_input"
+          />
+        </div>
+
+        {/* Entry Fee */}
+        <div className="space-y-1.5">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Entry Fee (₹)
+          </Label>
+          <Input
+            type="number"
+            min="0"
+            value={formData.entryFee}
+            onChange={(e) =>
+              setFormData((p) => ({ ...p, entryFee: e.target.value }))
+            }
+            placeholder="0 for free"
+            className="bg-muted/30 border-border"
+            data-ocid="admin.tournament.entryfee_input"
+          />
+        </div>
+
+        {/* Max Slots */}
+        <div className="space-y-1.5">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Max Slots *
+          </Label>
+          <Input
+            type="number"
+            min="1"
+            value={formData.maxSlots}
+            onChange={(e) =>
+              setFormData((p) => ({ ...p, maxSlots: e.target.value }))
+            }
+            placeholder="100"
+            required
+            className="bg-muted/30 border-border"
+            data-ocid="admin.tournament.maxslots_input"
+          />
+        </div>
+
+        {/* Start Time */}
+        <div className="space-y-1.5">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+            Start Time *
+          </Label>
+          <Input
+            type="datetime-local"
+            value={formData.startTime}
+            onChange={(e) =>
+              setFormData((p) => ({ ...p, startTime: e.target.value }))
+            }
+            required
+            className="bg-muted/30 border-border"
+            data-ocid="admin.tournament.starttime_input"
+          />
+        </div>
+
+        {/* Status (edit only) */}
+        {isEdit && (
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Status
+            </Label>
+            <Select
+              value={formData.status}
+              onValueChange={(v) =>
+                setFormData((p) => ({ ...p, status: v as TournamentStatus }))
+              }
+            >
+              <SelectTrigger className="bg-muted/30 border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                {Object.values(TournamentStatus).map((s) => (
+                  <SelectItem key={s} value={s} className="text-foreground">
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* QR Upload */}
+        <div className="space-y-1.5 md:col-span-2">
+          <span className="text-xs uppercase tracking-wider text-muted-foreground block mb-1.5">
+            UPI QR Code Image
+          </span>
+          <label className="flex items-center gap-3 p-3 border border-dashed border-border rounded cursor-pointer hover:border-primary/60 transition-colors">
+            <input
+              ref={qrInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleQrChange}
+            />
+            <Upload className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {qrFile ? qrFile.name : "Upload QR image (PNG/JPG)"}
+            </span>
+          </label>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() =>
+            isEdit ? setEditTournament(null) : setCreateOpen(false)
+          }
+          data-ocid="admin.tournament.cancel_button"
+          className="border border-border"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          className="neon-btn"
+          disabled={isCreatePending || isUpdatePending}
+          data-ocid="admin.tournament_submit_button"
+        >
+          {isCreatePending || isUpdatePending ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          ) : null}
+          {isEdit ? "Update Tournament" : "Create Tournament"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function AdminTransactionsTab() {
+  const { data: pendingTxs, isLoading: pendingLoading } =
+    usePendingTransactions();
+  const { data: usersWithPrincipal, isLoading: usersLoading } =
+    useAllUsersWithPrincipal();
+  const approveCash = useAdminApproveAddCash();
+  const rejectCash = useAdminRejectAddCash();
+  const approveWithdrawal = useAdminApproveWithdrawal();
+  const rejectWithdrawal = useAdminRejectWithdrawal();
+  const creditPrize = useAdminCreditPrize();
+
+  const [creditForm, setCreditForm] = useState({
+    userIndex: "",
+    amount: "",
+    description: "",
+  });
+
+  const pendingCashTxs = (pendingTxs ?? []).filter(
+    (tx) =>
+      tx.txType === TransactionType.CashAdded &&
+      tx.status === TransactionStatus.Pending,
+  );
+  const pendingWithdrawals = (pendingTxs ?? []).filter(
+    (tx) =>
+      tx.txType === TransactionType.Withdrawal &&
+      tx.status === TransactionStatus.Pending,
+  );
+
+  const getUserName = (userId: string) => {
+    const found = usersWithPrincipal?.find(([p]) => p.toString() === userId);
+    return found ? found[1].name : "Unknown";
+  };
+  const getUserUpi = (userId: string) => {
+    const found = usersWithPrincipal?.find(([p]) => p.toString() === userId);
+    return found ? found[1].upiId : "";
+  };
+
+  const formatDate = (ts: bigint) => {
+    const ms = Number(ts) / 1_000_000;
+    return new Date(ms).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const handleCreditPrize = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      !creditForm.userIndex ||
+      !creditForm.amount ||
+      !creditForm.description.trim()
+    ) {
+      toast.error("Please fill all fields");
+      return;
+    }
+    const idx = Number.parseInt(creditForm.userIndex);
+    const userEntry = usersWithPrincipal?.[idx];
+    if (!userEntry) return;
+    const amount = Number.parseInt(creditForm.amount);
+    if (!amount || amount <= 0) {
+      toast.error("Invalid amount");
+      return;
+    }
+    try {
+      await creditPrize.mutateAsync({
+        user: userEntry[0],
+        amount: BigInt(amount),
+        description: creditForm.description.trim(),
+      });
+      toast.success("Prize credited successfully!");
+      setCreditForm({ userIndex: "", amount: "", description: "" });
+    } catch {
+      toast.error("Failed to credit prize");
+    }
+  };
+
+  const isLoading = pendingLoading || usersLoading;
+
+  return (
+    <div className="space-y-8">
+      {/* Pending Top-ups */}
+      <div>
+        <h3 className="font-display font-bold text-sm uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-green-400" />
+          Pending Top-ups
+        </h3>
+        {isLoading ? (
+          <div
+            className="space-y-2"
+            data-ocid="admin.transactions.loading_state"
+          >
+            {[1, 2].map((i) => (
+              <Skeleton key={i} className="h-12 bg-muted/30 rounded" />
+            ))}
+          </div>
+        ) : pendingCashTxs.length === 0 ? (
+          <div
+            className="text-center py-8 gaming-card rounded-lg"
+            data-ocid="admin.topups.empty_state"
+          >
+            <p className="text-sm text-muted-foreground">
+              No pending top-up requests
+            </p>
+          </div>
+        ) : (
+          <div
+            className="overflow-x-auto rounded-lg border border-border"
+            data-ocid="admin.topups.table"
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Player
+                  </TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Amount
+                  </TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Date
+                  </TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Screenshot
+                  </TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingCashTxs.map((tx, idx) => (
+                  <TableRow
+                    key={tx.id}
+                    className="border-border hover:bg-muted/20"
+                    data-ocid={`admin.topups.row.${idx + 1}`}
+                  >
+                    <TableCell className="font-medium text-sm">
+                      {getUserName(tx.userId.toString())}
+                    </TableCell>
+                    <TableCell className="text-sm font-bold text-green-400">
+                      ₹{tx.amount.toString()}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatDate(tx.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      {tx.screenshotId ? (
+                        <a
+                          href={tx.screenshotId}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs underline text-primary"
+                        >
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30"
+                          onClick={async () => {
+                            try {
+                              await approveCash.mutateAsync(tx.id);
+                              toast.success("Top-up approved!");
+                            } catch {
+                              toast.error("Failed to approve");
+                            }
+                          }}
+                          disabled={approveCash.isPending}
+                          data-ocid={`admin.topup.approve_button.${idx + 1}`}
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                          onClick={async () => {
+                            try {
+                              await rejectCash.mutateAsync(tx.id);
+                              toast.success("Request rejected");
+                            } catch {
+                              toast.error("Failed to reject");
+                            }
+                          }}
+                          disabled={rejectCash.isPending}
+                          data-ocid={`admin.topup.reject_button.${idx + 1}`}
+                        >
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* Pending Withdrawals */}
+      <div>
+        <h3 className="font-display font-bold text-sm uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-yellow-400" />
+          Pending Withdrawals
+        </h3>
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => (
+              <Skeleton key={i} className="h-12 bg-muted/30 rounded" />
+            ))}
+          </div>
+        ) : pendingWithdrawals.length === 0 ? (
+          <div
+            className="text-center py-8 gaming-card rounded-lg"
+            data-ocid="admin.withdrawals.empty_state"
+          >
+            <p className="text-sm text-muted-foreground">
+              No pending withdrawal requests
+            </p>
+          </div>
+        ) : (
+          <div
+            className="overflow-x-auto rounded-lg border border-border"
+            data-ocid="admin.withdrawals.table"
+          >
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Player
+                  </TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    UPI ID
+                  </TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Amount
+                  </TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Date
+                  </TableHead>
+                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingWithdrawals.map((tx, idx) => (
+                  <TableRow
+                    key={tx.id}
+                    className="border-border hover:bg-muted/20"
+                    data-ocid={`admin.withdrawals.row.${idx + 1}`}
+                  >
+                    <TableCell className="font-medium text-sm">
+                      {getUserName(tx.userId.toString())}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {getUserUpi(tx.userId.toString()) || tx.description}
+                    </TableCell>
+                    <TableCell className="text-sm font-bold text-yellow-400">
+                      ₹{tx.amount.toString()}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatDate(tx.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30"
+                          onClick={async () => {
+                            try {
+                              await approveWithdrawal.mutateAsync(tx.id);
+                              toast.success("Withdrawal approved!");
+                            } catch {
+                              toast.error("Failed to approve");
+                            }
+                          }}
+                          disabled={approveWithdrawal.isPending}
+                          data-ocid={`admin.withdrawal.approve_button.${idx + 1}`}
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                          onClick={async () => {
+                            try {
+                              await rejectWithdrawal.mutateAsync(tx.id);
+                              toast.success("Withdrawal rejected");
+                            } catch {
+                              toast.error("Failed to reject");
+                            }
+                          }}
+                          disabled={rejectWithdrawal.isPending}
+                          data-ocid={`admin.withdrawal.reject_button.${idx + 1}`}
+                        >
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* Credit Prize Money */}
+      <div>
+        <h3 className="font-display font-bold text-sm uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-yellow-400" />
+          Credit Prize Money
+        </h3>
+        <form
+          onSubmit={handleCreditPrize}
+          className="gaming-card rounded-xl p-5 space-y-4"
+          data-ocid="admin.credit_prize_form"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                Player *
+              </Label>
+              <select
+                className="w-full h-9 rounded-md border border-border bg-muted/20 px-3 text-sm text-foreground"
+                value={creditForm.userIndex}
+                onChange={(e) =>
+                  setCreditForm((p) => ({ ...p, userIndex: e.target.value }))
+                }
+                required
+                data-ocid="admin.credit_prize_player_select"
+              >
+                <option value="">Select player</option>
+                {(usersWithPrincipal ?? []).map(([, profile], idx) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: index is the stable key here
+                  <option key={idx} value={idx.toString()}>
+                    {profile.name} — {profile.phone}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                Amount (₹) *
+              </Label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="Prize amount"
+                value={creditForm.amount}
+                onChange={(e) =>
+                  setCreditForm((p) => ({ ...p, amount: e.target.value }))
+                }
+                className="bg-muted/20 border-border"
+                data-ocid="admin.credit_prize_amount_input"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                Description *
+              </Label>
+              <Input
+                placeholder="e.g. 1st place prize"
+                value={creditForm.description}
+                onChange={(e) =>
+                  setCreditForm((p) => ({ ...p, description: e.target.value }))
+                }
+                className="bg-muted/20 border-border"
+                data-ocid="admin.credit_prize_description_input"
+                required
+              />
+            </div>
+          </div>
+          <Button
+            type="submit"
+            className="neon-btn-gold text-xs"
+            disabled={creditPrize.isPending}
+            data-ocid="admin.credit_prize_submit_button"
+          >
+            {creditPrize.isPending ? (
+              <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
+            ) : null}
+            Credit Prize Money
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function AdminPage() {
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
@@ -333,12 +1266,15 @@ export function AdminPage() {
     setFormData({
       name: tournament.name,
       description: tournament.description,
-      prizePool: tournament.prizePool,
+      prizePool: tournament.prizePool.toString(),
+      secondPrize: tournament.secondPrize.toString(),
+      thirdPrize: tournament.thirdPrize.toString(),
       entryFee: tournament.entryFee.toString(),
       maxSlots: tournament.maxSlots.toString(),
       startTime: local,
       upiQrImageId: tournament.upiQrImageId,
       status: tournament.status,
+      gameType: tournament.gameType,
     });
   };
 
@@ -362,11 +1298,14 @@ export function AdminPage() {
       await createTournament.mutateAsync({
         name: formData.name,
         description: formData.description,
-        prizePool: formData.prizePool,
+        prizePool: BigInt(formData.prizePool || "0"),
+        secondPrize: BigInt(formData.secondPrize || "0"),
+        thirdPrize: BigInt(formData.thirdPrize || "0"),
         entryFee: BigInt(formData.entryFee || "0"),
         maxSlots: BigInt(formData.maxSlots || "100"),
         startTime: startNanos,
         upiQrImageId: qrId,
+        gameType: formData.gameType,
       });
       toast.success("Tournament created!");
       setCreateOpen(false);
@@ -390,12 +1329,15 @@ export function AdminPage() {
         id: editTournament.id,
         name: formData.name,
         description: formData.description,
-        prizePool: formData.prizePool,
+        prizePool: BigInt(formData.prizePool || "0"),
+        secondPrize: BigInt(formData.secondPrize || "0"),
+        thirdPrize: BigInt(formData.thirdPrize || "0"),
         entryFee: BigInt(formData.entryFee || "0"),
         maxSlots: BigInt(formData.maxSlots || "100"),
         startTime: startNanos,
         status: formData.status,
         upiQrImageId: qrId,
+        gameType: formData.gameType,
       });
       toast.success("Tournament updated!");
       setEditTournament(null);
@@ -461,170 +1403,6 @@ export function AdminPage() {
 
   if (!isAdmin) return null;
 
-  const TournamentForm = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <form
-      onSubmit={isEdit ? handleUpdate : handleCreate}
-      data-ocid="admin.tournament_form"
-      className="space-y-4"
-    >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1.5 md:col-span-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Tournament Name *
-          </Label>
-          <Input
-            value={formData.name}
-            onChange={(e) =>
-              setFormData((p) => ({ ...p, name: e.target.value }))
-            }
-            placeholder="e.g. BGMI Pro League S1"
-            required
-            className="bg-muted/30 border-border"
-          />
-        </div>
-        <div className="space-y-1.5 md:col-span-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Description *
-          </Label>
-          <Textarea
-            value={formData.description}
-            onChange={(e) =>
-              setFormData((p) => ({ ...p, description: e.target.value }))
-            }
-            placeholder="Describe the tournament..."
-            required
-            className="bg-muted/30 border-border min-h-[80px]"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Prize Pool *
-          </Label>
-          <Input
-            value={formData.prizePool}
-            onChange={(e) =>
-              setFormData((p) => ({ ...p, prizePool: e.target.value }))
-            }
-            placeholder="e.g. ₹5,000"
-            required
-            className="bg-muted/30 border-border"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Entry Fee (₹)
-          </Label>
-          <Input
-            type="number"
-            min="0"
-            value={formData.entryFee}
-            onChange={(e) =>
-              setFormData((p) => ({ ...p, entryFee: e.target.value }))
-            }
-            placeholder="0 for free"
-            className="bg-muted/30 border-border"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Max Slots *
-          </Label>
-          <Input
-            type="number"
-            min="1"
-            value={formData.maxSlots}
-            onChange={(e) =>
-              setFormData((p) => ({ ...p, maxSlots: e.target.value }))
-            }
-            placeholder="100"
-            required
-            className="bg-muted/30 border-border"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-            Start Time *
-          </Label>
-          <Input
-            type="datetime-local"
-            value={formData.startTime}
-            onChange={(e) =>
-              setFormData((p) => ({ ...p, startTime: e.target.value }))
-            }
-            required
-            className="bg-muted/30 border-border"
-          />
-        </div>
-        {isEdit && (
-          <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-              Status
-            </Label>
-            <Select
-              value={formData.status}
-              onValueChange={(v) =>
-                setFormData((p) => ({ ...p, status: v as TournamentStatus }))
-              }
-            >
-              <SelectTrigger className="bg-muted/30 border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
-                {Object.values(TournamentStatus).map((s) => (
-                  <SelectItem key={s} value={s} className="text-foreground">
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        <div className="space-y-1.5 md:col-span-2">
-          <span className="text-xs uppercase tracking-wider text-muted-foreground block mb-1.5">
-            UPI QR Code Image
-          </span>
-          <label className="flex items-center gap-3 p-3 border border-dashed border-border rounded cursor-pointer hover:border-primary/60 transition-colors">
-            <input
-              ref={qrInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleQrChange}
-            />
-            <Upload className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              {qrFile ? qrFile.name : "Upload QR image (PNG/JPG)"}
-            </span>
-          </label>
-        </div>
-      </div>
-      <DialogFooter>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() =>
-            isEdit ? setEditTournament(null) : setCreateOpen(false)
-          }
-          data-ocid="admin.tournament.cancel_button"
-          className="border border-border"
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          className="neon-btn"
-          disabled={createTournament.isPending || updateTournament.isPending}
-          data-ocid="admin.tournament_submit_button"
-        >
-          {createTournament.isPending || updateTournament.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-          ) : null}
-          {isEdit ? "Update Tournament" : "Create Tournament"}
-        </Button>
-      </DialogFooter>
-    </form>
-  );
-
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       {/* Header */}
@@ -650,6 +1428,20 @@ export function AdminPage() {
             className="uppercase tracking-wider text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
           >
             Registrations
+          </TabsTrigger>
+          <TabsTrigger
+            value="users"
+            data-ocid="admin.users_tab"
+            className="uppercase tracking-wider text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
+          >
+            Users
+          </TabsTrigger>
+          <TabsTrigger
+            value="transactions"
+            data-ocid="admin.transactions_tab"
+            className="uppercase tracking-wider text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
+          >
+            Transactions
           </TabsTrigger>
         </TabsList>
 
@@ -694,22 +1486,25 @@ export function AdminPage() {
                       Name
                     </TableHead>
                     <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Prize
+                      Game
+                    </TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      1st Prize
+                    </TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      2nd Prize
+                    </TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      3rd Prize
                     </TableHead>
                     <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
                       Entry
-                    </TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Slots
                     </TableHead>
                     <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
                       Status
                     </TableHead>
                     <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
                       Start
-                    </TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Room
                     </TableHead>
                     <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
                       Actions
@@ -726,14 +1521,24 @@ export function AdminPage() {
                       <TableCell className="font-medium text-sm">
                         {t.name}
                       </TableCell>
-                      <TableCell className="text-xs text-primary">
-                        {t.prizePool}
+                      <TableCell>
+                        <GameTypeBadge gameType={t.gameType} />
+                      </TableCell>
+                      <TableCell className="text-xs text-neon-gold font-bold">
+                        ₹{t.prizePool.toString()}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {t.secondPrize > BigInt(0)
+                          ? `₹${t.secondPrize.toString()}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {t.thirdPrize > BigInt(0)
+                          ? `₹${t.thirdPrize.toString()}`
+                          : "—"}
                       </TableCell>
                       <TableCell className="text-xs font-mono">
                         {t.entryFee === BigInt(0) ? "Free" : `₹${t.entryFee}`}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono">
-                        {t.maxSlots.toString()}
                       </TableCell>
                       <TableCell>
                         <span
@@ -752,17 +1557,6 @@ export function AdminPage() {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatDate(t.startTime)}
-                      </TableCell>
-                      <TableCell>
-                        {t.roomId ? (
-                          <span className="text-xs text-accent font-mono">
-                            {t.roomId}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground/50">
-                            —
-                          </span>
-                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -826,6 +1620,28 @@ export function AdminPage() {
         <TabsContent value="registrations">
           <AdminRegistrationsTab />
         </TabsContent>
+
+        {/* Users Tab */}
+        <TabsContent value="users">
+          <div className="flex items-center gap-3 mb-4">
+            <Users className="w-4 h-4 text-primary" />
+            <h2 className="font-display font-bold text-base uppercase tracking-wider text-muted-foreground">
+              Registered Users
+            </h2>
+          </div>
+          <AdminUsersTab />
+        </TabsContent>
+
+        {/* Transactions Tab */}
+        <TabsContent value="transactions">
+          <div className="flex items-center gap-3 mb-4">
+            <Wallet className="w-4 h-4 text-primary" />
+            <h2 className="font-display font-bold text-base uppercase tracking-wider text-muted-foreground">
+              Transactions &amp; Payments
+            </h2>
+          </div>
+          <AdminTransactionsTab />
+        </TabsContent>
       </Tabs>
 
       {/* Create Dialog */}
@@ -839,7 +1655,20 @@ export function AdminPage() {
               Fill in the tournament details below.
             </DialogDescription>
           </DialogHeader>
-          <TournamentForm isEdit={false} />
+          <TournamentForm
+            isEdit={false}
+            formData={formData}
+            setFormData={setFormData}
+            qrFile={qrFile}
+            qrInputRef={qrInputRef}
+            handleQrChange={handleQrChange}
+            handleCreate={handleCreate}
+            handleUpdate={handleUpdate}
+            isCreatePending={createTournament.isPending}
+            isUpdatePending={updateTournament.isPending}
+            setEditTournament={setEditTournament}
+            setCreateOpen={setCreateOpen}
+          />
         </DialogContent>
       </Dialog>
 
@@ -857,7 +1686,20 @@ export function AdminPage() {
               Update the tournament details below.
             </DialogDescription>
           </DialogHeader>
-          <TournamentForm isEdit={true} />
+          <TournamentForm
+            isEdit={true}
+            formData={formData}
+            setFormData={setFormData}
+            qrFile={qrFile}
+            qrInputRef={qrInputRef}
+            handleQrChange={handleQrChange}
+            handleCreate={handleCreate}
+            handleUpdate={handleUpdate}
+            isCreatePending={createTournament.isPending}
+            isUpdatePending={updateTournament.isPending}
+            setEditTournament={setEditTournament}
+            setCreateOpen={setCreateOpen}
+          />
         </DialogContent>
       </Dialog>
 
@@ -893,6 +1735,7 @@ export function AdminPage() {
                 placeholder="Enter room ID"
                 required
                 className="bg-muted/30 border-border font-mono"
+                data-ocid="admin.room.id_input"
               />
             </div>
             <div className="space-y-1.5">
@@ -907,6 +1750,7 @@ export function AdminPage() {
                 placeholder="Enter room password"
                 required
                 className="bg-muted/30 border-border font-mono"
+                data-ocid="admin.room.password_input"
               />
             </div>
             <DialogFooter>

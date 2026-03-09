@@ -24,24 +24,56 @@ export const UserRole = IDL.Variant({
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
+export const GameType = IDL.Variant({
+  'BGMI' : IDL.Null,
+  'FreeFire' : IDL.Null,
+});
+export const UpiId = IDL.Text;
+export const Phone = IDL.Text;
+export const UserProfile = IDL.Record({
+  'name' : IDL.Text,
+  'winningsBalance' : IDL.Nat,
+  'upiId' : UpiId,
+  'phone' : Phone,
+  'walletBalance' : IDL.Nat,
+});
 export const PaymentStatus = IDL.Variant({
   'Rejected' : IDL.Null,
   'Verified' : IDL.Null,
   'Pending' : IDL.Null,
 });
-export const Phone = IDL.Text;
 export const Registration = IDL.Record({
   'id' : IDL.Text,
   'paymentStatus' : PaymentStatus,
   'playerId' : IDL.Principal,
   'paymentScreenshotId' : IDL.Text,
+  'gamePlayerId' : IDL.Text,
   'playerName' : IDL.Text,
   'phone' : Phone,
-  'bgmiId' : IDL.Text,
   'registeredAt' : IDL.Int,
   'tournamentId' : IDL.Text,
 });
-export const UserProfile = IDL.Record({ 'name' : IDL.Text, 'phone' : Phone });
+export const TransactionStatus = IDL.Variant({
+  'Rejected' : IDL.Null,
+  'Completed' : IDL.Null,
+  'Pending' : IDL.Null,
+});
+export const TransactionType = IDL.Variant({
+  'Withdrawal' : IDL.Null,
+  'CashAdded' : IDL.Null,
+  'PrizeWon' : IDL.Null,
+  'MatchJoined' : IDL.Null,
+});
+export const Transaction = IDL.Record({
+  'id' : IDL.Text,
+  'status' : TransactionStatus,
+  'userId' : IDL.Principal,
+  'createdAt' : IDL.Int,
+  'description' : IDL.Text,
+  'txType' : TransactionType,
+  'screenshotId' : IDL.Text,
+  'amount' : IDL.Nat,
+});
 export const TournamentStatus = IDL.Variant({
   'Live' : IDL.Null,
   'Cancelled' : IDL.Null,
@@ -53,14 +85,17 @@ export const Tournament = IDL.Record({
   'startTime' : IDL.Int,
   'status' : TournamentStatus,
   'upiQrImageId' : IDL.Text,
+  'thirdPrize' : IDL.Nat,
   'maxSlots' : IDL.Nat,
   'name' : IDL.Text,
   'createdAt' : IDL.Int,
+  'secondPrize' : IDL.Nat,
   'description' : IDL.Text,
   'roomPassword' : IDL.Opt(IDL.Text),
+  'gameType' : GameType,
   'entryFee' : IDL.Nat,
   'roomId' : IDL.Opt(IDL.Text),
-  'prizePool' : IDL.Text,
+  'prizePool' : IDL.Nat,
 });
 
 export const idlService = IDL.Service({
@@ -91,17 +126,41 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'adminApproveAddCash' : IDL.Func([IDL.Text], [], []),
+  'adminApproveWithdrawal' : IDL.Func([IDL.Text], [], []),
+  'adminCreditPrize' : IDL.Func([IDL.Principal, IDL.Nat, IDL.Text], [], []),
+  'adminRejectAddCash' : IDL.Func([IDL.Text], [], []),
+  'adminRejectWithdrawal' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'cancelTournament' : IDL.Func([IDL.Text], [], []),
   'createTournament' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Int, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Int,
+        IDL.Text,
+        GameType,
+      ],
       [IDL.Text],
       [],
     ),
+  'creditWalletBalance' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
   'deleteTournament' : IDL.Func([IDL.Text], [], []),
+  'getAllUsersWithPrincipal' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
+      ['query'],
+    ),
   'getCallerRegistrations' : IDL.Func([], [IDL.Vec(Registration)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getMyTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
+  'getPendingTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
   'getTournament' : IDL.Func([IDL.Text], [Tournament], ['query']),
   'getTournamentRegistrations' : IDL.Func(
       [IDL.Text],
@@ -114,13 +173,20 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-  'listTournaments' : IDL.Func([], [IDL.Vec(Tournament)], ['query']),
+  'joinTournamentWithWallet' : IDL.Func([IDL.Text, IDL.Text], [IDL.Text], []),
+  'listTournamentsByGameType' : IDL.Func(
+      [GameType],
+      [IDL.Vec(Tournament)],
+      ['query'],
+    ),
   'registerForTournament' : IDL.Func(
       [IDL.Text, IDL.Text, Phone, IDL.Text, IDL.Text],
       [IDL.Text],
       [],
     ),
-  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'requestAddCash' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Text], []),
+  'requestWithdrawal' : IDL.Func([IDL.Text, IDL.Nat], [IDL.Text], []),
+  'saveCallerUserProfile' : IDL.Func([IDL.Text, Phone, UpiId], [], []),
   'setRoomDetails' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
   'updatePaymentScreenshot' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'updatePaymentStatus' : IDL.Func(
@@ -133,12 +199,15 @@ export const idlService = IDL.Service({
         IDL.Text,
         IDL.Text,
         IDL.Text,
-        IDL.Text,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Nat,
         IDL.Nat,
         IDL.Nat,
         IDL.Int,
         TournamentStatus,
         IDL.Text,
+        GameType,
       ],
       [],
       [],
@@ -164,24 +233,53 @@ export const idlFactory = ({ IDL }) => {
     'user' : IDL.Null,
     'guest' : IDL.Null,
   });
+  const GameType = IDL.Variant({ 'BGMI' : IDL.Null, 'FreeFire' : IDL.Null });
+  const UpiId = IDL.Text;
+  const Phone = IDL.Text;
+  const UserProfile = IDL.Record({
+    'name' : IDL.Text,
+    'winningsBalance' : IDL.Nat,
+    'upiId' : UpiId,
+    'phone' : Phone,
+    'walletBalance' : IDL.Nat,
+  });
   const PaymentStatus = IDL.Variant({
     'Rejected' : IDL.Null,
     'Verified' : IDL.Null,
     'Pending' : IDL.Null,
   });
-  const Phone = IDL.Text;
   const Registration = IDL.Record({
     'id' : IDL.Text,
     'paymentStatus' : PaymentStatus,
     'playerId' : IDL.Principal,
     'paymentScreenshotId' : IDL.Text,
+    'gamePlayerId' : IDL.Text,
     'playerName' : IDL.Text,
     'phone' : Phone,
-    'bgmiId' : IDL.Text,
     'registeredAt' : IDL.Int,
     'tournamentId' : IDL.Text,
   });
-  const UserProfile = IDL.Record({ 'name' : IDL.Text, 'phone' : Phone });
+  const TransactionStatus = IDL.Variant({
+    'Rejected' : IDL.Null,
+    'Completed' : IDL.Null,
+    'Pending' : IDL.Null,
+  });
+  const TransactionType = IDL.Variant({
+    'Withdrawal' : IDL.Null,
+    'CashAdded' : IDL.Null,
+    'PrizeWon' : IDL.Null,
+    'MatchJoined' : IDL.Null,
+  });
+  const Transaction = IDL.Record({
+    'id' : IDL.Text,
+    'status' : TransactionStatus,
+    'userId' : IDL.Principal,
+    'createdAt' : IDL.Int,
+    'description' : IDL.Text,
+    'txType' : TransactionType,
+    'screenshotId' : IDL.Text,
+    'amount' : IDL.Nat,
+  });
   const TournamentStatus = IDL.Variant({
     'Live' : IDL.Null,
     'Cancelled' : IDL.Null,
@@ -193,14 +291,17 @@ export const idlFactory = ({ IDL }) => {
     'startTime' : IDL.Int,
     'status' : TournamentStatus,
     'upiQrImageId' : IDL.Text,
+    'thirdPrize' : IDL.Nat,
     'maxSlots' : IDL.Nat,
     'name' : IDL.Text,
     'createdAt' : IDL.Int,
+    'secondPrize' : IDL.Nat,
     'description' : IDL.Text,
     'roomPassword' : IDL.Opt(IDL.Text),
+    'gameType' : GameType,
     'entryFee' : IDL.Nat,
     'roomId' : IDL.Opt(IDL.Text),
-    'prizePool' : IDL.Text,
+    'prizePool' : IDL.Nat,
   });
   
   return IDL.Service({
@@ -231,17 +332,41 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'adminApproveAddCash' : IDL.Func([IDL.Text], [], []),
+    'adminApproveWithdrawal' : IDL.Func([IDL.Text], [], []),
+    'adminCreditPrize' : IDL.Func([IDL.Principal, IDL.Nat, IDL.Text], [], []),
+    'adminRejectAddCash' : IDL.Func([IDL.Text], [], []),
+    'adminRejectWithdrawal' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'cancelTournament' : IDL.Func([IDL.Text], [], []),
     'createTournament' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat, IDL.Int, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Int,
+          IDL.Text,
+          GameType,
+        ],
         [IDL.Text],
         [],
       ),
+    'creditWalletBalance' : IDL.Func([IDL.Principal, IDL.Nat], [], []),
     'deleteTournament' : IDL.Func([IDL.Text], [], []),
+    'getAllUsersWithPrincipal' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
+        ['query'],
+      ),
     'getCallerRegistrations' : IDL.Func([], [IDL.Vec(Registration)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getMyTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
+    'getPendingTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
     'getTournament' : IDL.Func([IDL.Text], [Tournament], ['query']),
     'getTournamentRegistrations' : IDL.Func(
         [IDL.Text],
@@ -254,13 +379,20 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-    'listTournaments' : IDL.Func([], [IDL.Vec(Tournament)], ['query']),
+    'joinTournamentWithWallet' : IDL.Func([IDL.Text, IDL.Text], [IDL.Text], []),
+    'listTournamentsByGameType' : IDL.Func(
+        [GameType],
+        [IDL.Vec(Tournament)],
+        ['query'],
+      ),
     'registerForTournament' : IDL.Func(
         [IDL.Text, IDL.Text, Phone, IDL.Text, IDL.Text],
         [IDL.Text],
         [],
       ),
-    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'requestAddCash' : IDL.Func([IDL.Nat, IDL.Text], [IDL.Text], []),
+    'requestWithdrawal' : IDL.Func([IDL.Text, IDL.Nat], [IDL.Text], []),
+    'saveCallerUserProfile' : IDL.Func([IDL.Text, Phone, UpiId], [], []),
     'setRoomDetails' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
     'updatePaymentScreenshot' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'updatePaymentStatus' : IDL.Func(
@@ -273,12 +405,15 @@ export const idlFactory = ({ IDL }) => {
           IDL.Text,
           IDL.Text,
           IDL.Text,
-          IDL.Text,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Nat,
           IDL.Nat,
           IDL.Nat,
           IDL.Int,
           TournamentStatus,
           IDL.Text,
+          GameType,
         ],
         [],
         [],

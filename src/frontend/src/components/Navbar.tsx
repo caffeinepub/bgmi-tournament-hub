@@ -1,6 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
-import { LogIn, LogOut, Menu, Shield, Smartphone, User, X } from "lucide-react";
+import {
+  LogIn,
+  LogOut,
+  Menu,
+  Shield,
+  Smartphone,
+  User,
+  Wallet,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
@@ -8,15 +17,12 @@ import { useIsCallerAdmin } from "../hooks/useQueries";
 
 function LaunchBGMIButton({ className = "" }: { className?: string }) {
   const handleLaunch = () => {
-    // Try deep link - works on Android with BGMI installed
-    // On desktop/unsupported, silently fails
     try {
       window.open(
         "intent://com.pubg.imobile#Intent;scheme=bgmi;package=com.pubg.imobile;end",
         "_blank",
       );
     } catch {
-      // Fallback: try iOS scheme
       window.location.href = "bgmi://launch";
     }
   };
@@ -34,6 +40,31 @@ function LaunchBGMIButton({ className = "" }: { className?: string }) {
   );
 }
 
+function LaunchFFButton({ className = "" }: { className?: string }) {
+  const handleLaunch = () => {
+    try {
+      window.open(
+        "intent://com.dts.freefiremax#Intent;scheme=freefiremax;package=com.dts.freefiremax;end",
+        "_blank",
+      );
+    } catch {
+      window.open("https://ff.garena.com", "_blank");
+    }
+  };
+
+  return (
+    <Button
+      onClick={handleLaunch}
+      data-ocid="nav.launch_freefire_button"
+      className={`neon-btn-ff text-xs px-3 py-1.5 flex items-center gap-1.5 ${className}`}
+      size="sm"
+    >
+      <Smartphone className="w-3 h-3" />
+      <span className="hidden sm:inline">Launch</span> FF
+    </Button>
+  );
+}
+
 export function Navbar() {
   const { login, clear, identity, isLoggingIn, isInitializing } =
     useInternetIdentity();
@@ -44,8 +75,8 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
-      {/* Top accent line - cyan to purple gradient */}
-      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-neon-cyan to-neon-purple opacity-70" />
+      {/* Top accent line - cyan to orange gradient */}
+      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-neon-cyan to-neon-ff opacity-70" />
 
       <nav className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
@@ -66,7 +97,7 @@ export function Navbar() {
               IND <span className="text-primary glow-text-cyan">eSports</span>
             </span>
             <span className="text-[8px] font-mono text-muted-foreground/60 tracking-widest uppercase hidden sm:block">
-              BGMI Tournament Hub
+              BGMI &amp; Free Fire MAX Hub
             </span>
           </div>
         </Link>
@@ -91,6 +122,17 @@ export function Navbar() {
               My Slots
             </Link>
           )}
+          {isLoggedIn && (
+            <Link
+              to="/wallet"
+              data-ocid="nav.wallet_link"
+              className="text-xs font-bold text-muted-foreground hover:text-neon-gold transition-colors uppercase tracking-[0.1em] flex items-center gap-1"
+              activeProps={{ className: "text-neon-gold glow-text-gold" }}
+            >
+              <Wallet className="w-3 h-3" />
+              Wallet
+            </Link>
+          )}
           {isAdmin && (
             <Link
               to="/admin"
@@ -104,9 +146,10 @@ export function Navbar() {
           )}
         </div>
 
-        {/* Right side: Launch BGMI + auth */}
+        {/* Right side: Launch BGMI + Launch FF + auth */}
         <div className="hidden md:flex items-center gap-2">
           <LaunchBGMIButton />
+          <LaunchFFButton />
 
           {isLoggedIn ? (
             <div className="flex items-center gap-2">
@@ -147,9 +190,10 @@ export function Navbar() {
           )}
         </div>
 
-        {/* Mobile: Launch BGMI + menu toggle */}
-        <div className="md:hidden flex items-center gap-2">
+        {/* Mobile: Launch buttons + menu toggle */}
+        <div className="md:hidden flex items-center gap-1.5">
           <LaunchBGMIButton className="!px-2" />
+          <LaunchFFButton className="!px-2" />
           <button
             type="button"
             className="p-2 text-muted-foreground hover:text-foreground"
@@ -191,6 +235,17 @@ export function Navbar() {
                   className="text-sm font-bold text-muted-foreground hover:text-primary py-2 uppercase tracking-[0.1em]"
                 >
                   My Slots
+                </Link>
+              )}
+              {isLoggedIn && (
+                <Link
+                  to="/wallet"
+                  data-ocid="nav.wallet_link"
+                  onClick={() => setMobileOpen(false)}
+                  className="text-sm font-bold text-muted-foreground hover:text-neon-gold py-2 uppercase tracking-[0.1em] flex items-center gap-1"
+                >
+                  <Wallet className="w-3.5 h-3.5" />
+                  Wallet
                 </Link>
               )}
               {isAdmin && (

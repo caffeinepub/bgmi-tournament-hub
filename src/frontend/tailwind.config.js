@@ -76,6 +76,7 @@ export default {
           purple: "oklch(0.68 0.28 285)",
           gold: "oklch(0.78 0.19 55)",
           green: "oklch(0.75 0.22 135)",
+          ff: "oklch(0.75 0.22 52)",
         },
       },
       borderRadius: {
@@ -87,6 +88,7 @@ export default {
         xs: "0 1px 2px 0 rgba(0,0,0,0.05)",
         "glow-cyan": "0 0 15px oklch(0.88 0.18 195 / 0.4), 0 0 30px oklch(0.88 0.18 195 / 0.2)",
         "glow-green": "0 0 15px oklch(0.82 0.22 138 / 0.4), 0 0 30px oklch(0.82 0.22 138 / 0.2)",
+        "glow-ff": "0 0 15px oklch(0.75 0.22 52 / 0.4), 0 0 30px oklch(0.75 0.22 52 / 0.2)",
       },
       keyframes: {
         "accordion-down": {

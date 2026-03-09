@@ -14,7 +14,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { loadConfig } from "../config";
@@ -156,8 +155,6 @@ export function InternetIdentityProvider({
   const [identity, setIdentity] = useState<Identity | undefined>(undefined);
   const [loginStatus, setStatus] = useState<Status>("initializing");
   const [loginError, setError] = useState<Error | undefined>(undefined);
-  const initializedRef = useRef(false);
-  const createOptionsRef = useRef(createOptions);
 
   const setErrorMessage = useCallback((message: string) => {
     setStatus("loginError");
@@ -235,33 +232,29 @@ export function InternetIdentityProvider({
   }, [authClient, setErrorMessage]);
 
   useEffect(() => {
-    // Guard against re-running when authClient state updates trigger re-render.
-    // Initialization should only happen once on mount.
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
     let cancelled = false;
     void (async () => {
       try {
         setStatus("initializing");
-        const freshClient = await createAuthClient(createOptionsRef.current);
-        if (cancelled) return;
-        setAuthClient(freshClient);
-        const isAuthenticated = await freshClient.isAuthenticated();
+        let existingClient = authClient;
+        if (!existingClient) {
+          existingClient = await createAuthClient(createOptions);
+          if (cancelled) return;
+          setAuthClient(existingClient);
+        }
+        const isAuthenticated = await existingClient.isAuthenticated();
         if (cancelled) return;
         if (isAuthenticated) {
-          const loadedIdentity = freshClient.getIdentity();
+          const loadedIdentity = existingClient.getIdentity();
           setIdentity(loadedIdentity);
         }
       } catch (unknownError) {
-        if (!cancelled) {
-          setStatus("loginError");
-          setError(
-            unknownError instanceof Error
-              ? unknownError
-              : new Error("Initialization failed"),
-          );
-        }
+        setStatus("loginError");
+        setError(
+          unknownError instanceof Error
+            ? unknownError
+            : new Error("Initialization failed"),
+        );
       } finally {
         if (!cancelled) setStatus("idle");
       }
@@ -269,8 +262,7 @@ export function InternetIdentityProvider({
     return () => {
       cancelled = true;
     };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run only on mount; createOptions is captured via ref to avoid re-initialization loop
-  }, []);
+  }, [createOptions, authClient]);
 
   const value = useMemo<ProviderValue>(
     () => ({

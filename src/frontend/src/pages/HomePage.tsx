@@ -17,13 +17,13 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { TournamentStatus } from "../backend.d";
+import { GameType, TournamentStatus } from "../backend.d";
 import {
   type SampleTournament,
   TournamentCard,
 } from "../components/TournamentCard";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useListTournaments } from "../hooks/useQueries";
+import { useListTournamentsByGameType } from "../hooks/useQueries";
 
 // ---- BGMI Maps Data ----
 const BGMI_MAPS = [
@@ -165,13 +165,121 @@ const BGMI_MAPS = [
   },
 ];
 
-const SAMPLE_TOURNAMENTS: SampleTournament[] = [
+// ---- Free Fire MAX Maps Data ----
+const FF_MAPS = [
   {
-    id: "sample-1",
+    id: "bermuda",
+    name: "Bermuda",
+    size: "4×4 km",
+    sizeTag: "CLASSIC",
+    terrain: "Beaches, Urban Zones, Military",
+    color: "oklch(0.75 0.22 52)",
+    bgColor: "oklch(0.11 0.022 55)",
+    tips: [
+      "Pochinki equivalent: Peak is the most contested drop",
+      "Clock Tower dominates the center — control it",
+      "Bermuda has fast circles — always rotate early",
+      "Military Base gives top-tier loot for brave drops",
+    ],
+    description:
+      "The iconic classic map with diverse terrain — beaches, urban areas, and military zones. Pochinki-equivalent Peak is the most contested drop spot.",
+  },
+  {
+    id: "kalahari",
+    name: "Kalahari",
+    size: "4×4 km",
+    sizeTag: "DESERT",
+    terrain: "Rocky Terrain, Cave Systems",
+    color: "oklch(0.72 0.19 50)",
+    bgColor: "oklch(0.11 0.020 55)",
+    tips: [
+      "Use the rocky terrain for long-range cover",
+      "Cave systems are perfect for ambush",
+      "Water sources are rare — plan routes carefully",
+      "Open desert punishes slow players hard",
+    ],
+    description:
+      "A desert with rocky terrain and dynamic cave systems. Great for ambush and close combat in tight rocky corridors.",
+  },
+  {
+    id: "purgatory",
+    name: "Purgatory",
+    size: "4×4 km",
+    sizeTag: "CLASSIC",
+    terrain: "Island Urban Zones",
+    color: "oklch(0.68 0.20 140)",
+    bgColor: "oklch(0.10 0.022 145)",
+    tips: [
+      "Rich urban zones — early game is chaotic",
+      "Bridge crossings are high-risk, high-reward",
+      "Close-quarters combat dominates this map",
+      "Stock up early — urban drops are dense",
+    ],
+    description:
+      "An island map with rich urban zones. Aggressive early game with close-quarters combat — not for the faint-hearted.",
+  },
+  {
+    id: "alpine",
+    name: "Alpine",
+    size: "4×4 km",
+    sizeTag: "SNOW",
+    terrain: "Snowy Mountains, Valleys",
+    color: "oklch(0.82 0.08 215)",
+    bgColor: "oklch(0.11 0.015 230)",
+    tips: [
+      "Vehicles are essential in the wide valleys",
+      "High ground snipers dominate Alpine",
+      "Snowstorms reduce visibility — stay cautious",
+      "Warm-up Chalets have great early loot",
+    ],
+    description:
+      "A snowy mountainous map. Great for vehicles and sniper battles across dramatic mountain vistas.",
+  },
+  {
+    id: "bermuda-remastered",
+    name: "Bermuda Remastered",
+    size: "4×4 km",
+    sizeTag: "CLASSIC+",
+    terrain: "Upgraded Bermuda Layout",
+    color: "oklch(0.78 0.22 55)",
+    bgColor: "oklch(0.11 0.022 55)",
+    tips: [
+      "Familiar layout with new strategic zones",
+      "Improved visuals help spot enemies easier",
+      "New loot zones added near the coastline",
+      "Same rotations as OG Bermuda still work",
+    ],
+    description:
+      "A revamped Bermuda with new zones and better visuals. Same layout, upgraded feel — perfect for veterans.",
+  },
+  {
+    id: "nexterra",
+    name: "Nexterra",
+    size: "4×4 km",
+    sizeTag: "FUTURISTIC",
+    terrain: "Sci-Fi Zones, Advanced Mechanics",
+    color: "oklch(0.72 0.26 295)",
+    bgColor: "oklch(0.10 0.025 295)",
+    tips: [
+      "Unique sci-fi mechanics change the combat meta",
+      "Energy shields and futuristic cover available",
+      "Learn the new mechanics before going hot",
+      "Experimental zones have rare futuristic loot",
+    ],
+    description:
+      "A futuristic map with advanced mechanics and unique zones. Mastering Nexterra's sci-fi elements gives a decisive edge.",
+  },
+];
+
+const SAMPLE_BGMI_TOURNAMENTS: SampleTournament[] = [
+  {
+    id: "sample-bgmi-1",
     name: "BGMI Pro League Season 1",
     description:
-      "India's most competitive BGMI tournament. Battle 100 squads for the ultimate prize pool. Only the best survive.",
-    prizePool: "₹5,000",
+      "India's most competitive BGMI tournament. Battle 100 squads for the ultimate prize pool.",
+    prizePool: BigInt(5000),
+    secondPrize: BigInt(2000),
+    thirdPrize: BigInt(1000),
     entryFee: BigInt(50),
     maxSlots: BigInt(100),
     status: TournamentStatus.Upcoming,
@@ -179,13 +287,16 @@ const SAMPLE_TOURNAMENTS: SampleTournament[] = [
     upiQrImageId: "",
     createdAt: BigInt(Date.now()) * BigInt(1_000_000),
     slotsUsed: 64,
+    gameType: GameType.BGMI,
   },
   {
-    id: "sample-2",
+    id: "sample-bgmi-2",
     name: "Weekend Warriors Cup",
     description:
-      "Fast-paced weekend showdown for squads. Live now — limited slots remaining. Don't miss out!",
-    prizePool: "₹2,000",
+      "Fast-paced weekend showdown for squads. Live now — limited slots remaining!",
+    prizePool: BigInt(2000),
+    secondPrize: BigInt(800),
+    thirdPrize: BigInt(400),
     entryFee: BigInt(20),
     maxSlots: BigInt(50),
     status: TournamentStatus.Live,
@@ -193,13 +304,16 @@ const SAMPLE_TOURNAMENTS: SampleTournament[] = [
     upiQrImageId: "",
     createdAt: BigInt(Date.now() - 2 * 60 * 60 * 1000) * BigInt(1_000_000),
     slotsUsed: 43,
+    gameType: GameType.BGMI,
   },
   {
-    id: "sample-3",
+    id: "sample-bgmi-3",
     name: "Chicken Dinner Classic",
     description:
-      "Premium BGMI tournament. Prove your worth on Erangel & Miramar. Claim the chicken dinner.",
-    prizePool: "₹10,000",
+      "Premium BGMI tournament. Prove your worth on Erangel & Miramar.",
+    prizePool: BigInt(10000),
+    secondPrize: BigInt(4000),
+    thirdPrize: BigInt(2000),
     entryFee: BigInt(100),
     maxSlots: BigInt(100),
     status: TournamentStatus.Upcoming,
@@ -208,6 +322,44 @@ const SAMPLE_TOURNAMENTS: SampleTournament[] = [
     upiQrImageId: "",
     createdAt: BigInt(Date.now()) * BigInt(1_000_000),
     slotsUsed: 28,
+    gameType: GameType.BGMI,
+  },
+];
+
+const SAMPLE_FF_TOURNAMENTS: SampleTournament[] = [
+  {
+    id: "sample-ff-1",
+    name: "Free Fire MAX Blaze Cup",
+    description:
+      "The hottest Free Fire MAX tournament in India. Drop on Bermuda and prove your survival skills.",
+    prizePool: BigInt(3000),
+    secondPrize: BigInt(1200),
+    thirdPrize: BigInt(600),
+    entryFee: BigInt(30),
+    maxSlots: BigInt(60),
+    status: TournamentStatus.Upcoming,
+    startTime: BigInt(Date.now() + 5 * 24 * 60 * 60 * 1000) * BigInt(1_000_000),
+    upiQrImageId: "",
+    createdAt: BigInt(Date.now()) * BigInt(1_000_000),
+    slotsUsed: 38,
+    gameType: GameType.FreeFire,
+  },
+  {
+    id: "sample-ff-2",
+    name: "Garena Showdown Series",
+    description:
+      "Elite Free Fire MAX showdown. Kalahari desert warfare — only the sharpest survive.",
+    prizePool: BigInt(5000),
+    secondPrize: BigInt(2000),
+    thirdPrize: BigInt(1000),
+    entryFee: BigInt(50),
+    maxSlots: BigInt(80),
+    status: TournamentStatus.Live,
+    startTime: BigInt(Date.now() - 15 * 60 * 1000) * BigInt(1_000_000),
+    upiQrImageId: "",
+    createdAt: BigInt(Date.now() - 1 * 60 * 60 * 1000) * BigInt(1_000_000),
+    slotsUsed: 72,
+    gameType: GameType.FreeFire,
   },
 ];
 
@@ -216,9 +368,10 @@ function TournamentSkeleton() {
     <div className="gaming-card rounded-lg p-5 space-y-4">
       <Skeleton className="h-5 w-3/4 bg-muted/50" />
       <Skeleton className="h-3 w-full bg-muted/30" />
-      <div className="grid grid-cols-2 gap-3">
-        <Skeleton className="h-14 bg-muted/30 rounded" />
-        <Skeleton className="h-14 bg-muted/30 rounded" />
+      <div className="grid grid-cols-3 gap-2">
+        <Skeleton className="h-12 bg-muted/30 rounded" />
+        <Skeleton className="h-12 bg-muted/30 rounded" />
+        <Skeleton className="h-12 bg-muted/30 rounded" />
       </div>
       <Skeleton className="h-2 bg-muted/30 rounded-full" />
       <Skeleton className="h-9 bg-muted/40 rounded" />
@@ -226,11 +379,25 @@ function TournamentSkeleton() {
   );
 }
 
+type MapItem = {
+  id: string;
+  name: string;
+  size: string;
+  sizeTag: string;
+  terrain: string;
+  color: string;
+  bgColor: string;
+  tips: string[];
+  description: string;
+};
+
 function MapCard({
   map,
   index,
-}: { map: (typeof BGMI_MAPS)[0]; index: number }) {
+  accentColor,
+}: { map: MapItem; index: number; accentColor?: string }) {
   const [expanded, setExpanded] = useState(false);
+  const color = accentColor ?? map.color;
 
   return (
     <motion.div
@@ -245,7 +412,7 @@ function MapCard({
         className="map-card rounded-lg overflow-hidden w-full text-left"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
-        style={{ borderColor: `${map.color}30` }}
+        style={{ borderColor: `${color}30` }}
       >
         {/* Map header */}
         <div
@@ -256,31 +423,30 @@ function MapCard({
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              {/* Color indicator */}
               <div
                 className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center"
                 style={{
-                  background: `${map.color}22`,
-                  border: `1.5px solid ${map.color}50`,
-                  boxShadow: `0 0 10px ${map.color}30`,
+                  background: `${color}22`,
+                  border: `1.5px solid ${color}50`,
+                  boxShadow: `0 0 10px ${color}30`,
                 }}
               >
-                <MapPin className="w-4 h-4" style={{ color: map.color }} />
+                <MapPin className="w-4 h-4" style={{ color }} />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3
                     className="font-display font-black text-base uppercase tracking-wider"
-                    style={{ color: map.color }}
+                    style={{ color }}
                   >
                     {map.name}
                   </h3>
                   <span
                     className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-sm"
                     style={{
-                      background: `${map.color}18`,
-                      color: map.color,
-                      border: `1px solid ${map.color}40`,
+                      background: `${color}18`,
+                      color,
+                      border: `1px solid ${color}40`,
                     }}
                   >
                     {map.sizeTag}
@@ -337,10 +503,10 @@ function MapCard({
                 </p>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 mb-2">
-                    <Swords className="w-3 h-3" style={{ color: map.color }} />
+                    <Swords className="w-3 h-3" style={{ color }} />
                     <span
                       className="text-[9px] font-bold uppercase tracking-widest"
-                      style={{ color: map.color }}
+                      style={{ color }}
                     >
                       Pro Tips
                     </span>
@@ -349,7 +515,7 @@ function MapCard({
                     <div key={tip} className="flex items-start gap-2">
                       <span
                         className="text-[8px] font-black mt-0.5 shrink-0"
-                        style={{ color: map.color }}
+                        style={{ color }}
                       >
                         {String(i + 1).padStart(2, "0")}
                       </span>
@@ -406,11 +572,25 @@ function FullTournamentDialog({
 }
 
 export function HomePage() {
-  const { data: tournaments, isLoading } = useListTournaments();
+  const [activeGame, setActiveGame] = useState<GameType>(GameType.BGMI);
+  const isBGMI = activeGame === GameType.BGMI;
+
+  const { data: bgmiTournaments, isLoading: bgmiLoading } =
+    useListTournamentsByGameType(GameType.BGMI);
+  const { data: ffTournaments, isLoading: ffLoading } =
+    useListTournamentsByGameType(GameType.FreeFire);
+
   const { identity } = useInternetIdentity();
   const isLoggedIn = !!identity;
   const [fullTournamentDialogOpen, setFullTournamentDialogOpen] =
     useState(false);
+
+  const tournaments = isBGMI ? bgmiTournaments : ffTournaments;
+  const isLoading = isBGMI ? bgmiLoading : ffLoading;
+  const sampleTournaments = isBGMI
+    ? SAMPLE_BGMI_TOURNAMENTS
+    : SAMPLE_FF_TOURNAMENTS;
+  const activeMaps = isBGMI ? BGMI_MAPS : FF_MAPS;
 
   // Filter to show active/upcoming tournaments from backend; fall back to sample data
   const activeTournaments = tournaments?.filter(
@@ -423,7 +603,7 @@ export function HomePage() {
       ? activeTournaments
       : !isLoading && tournaments && tournaments.length > 0
         ? []
-        : SAMPLE_TOURNAMENTS;
+        : sampleTournaments;
   const isSampleData = !tournaments || tournaments.length === 0;
   const hasNoActiveTournaments =
     !isLoading &&
@@ -467,7 +647,7 @@ export function HomePage() {
                     <div className="flex items-center gap-2 mb-1">
                       <div className="h-[1px] w-6 bg-primary/60" />
                       <span className="text-[10px] font-mono text-primary uppercase tracking-widest">
-                        India's #1 BGMI Platform
+                        India's #1 Gaming Platform
                       </span>
                     </div>
                     <h1 className="font-display font-black text-4xl sm:text-5xl md:text-6xl leading-none tracking-tight">
@@ -492,7 +672,7 @@ export function HomePage() {
                   transition={{ delay: 0.4 }}
                   className="text-[11px] font-mono text-neon-purple/80 uppercase tracking-widest"
                 >
-                  Register → Pay → Play → Conquer
+                  BGMI &amp; Free Fire MAX • Register → Pay → Dominate
                 </motion.p>
               </motion.div>
             </div>
@@ -520,8 +700,8 @@ export function HomePage() {
               color: "text-neon-gold glow-text-gold",
             },
             {
-              label: "Verified Platform",
-              value: "100% Safe",
+              label: "Games",
+              value: "BGMI + FF",
               color: "text-primary glow-text-cyan",
             },
           ].map(({ label, value, color }) => (
@@ -541,125 +721,214 @@ export function HomePage() {
         </div>
       </motion.section>
 
-      {/* ===== BGMI MAPS SECTION ===== */}
+      {/* ===== GAME TOGGLE + MAPS + TOURNAMENTS ===== */}
       <section
-        className="container mx-auto px-4 py-12"
-        data-ocid="home.maps_section"
+        className="container mx-auto px-4 py-10"
+        data-ocid="home.game_section"
       >
+        {/* Game Toggle */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="mb-8"
+          className="flex justify-center mb-10"
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div
-              className="h-6 w-1 bg-neon-purple rounded-full"
-              style={{ boxShadow: "0 0 8px oklch(0.68 0.28 285)" }}
-            />
-            <h2 className="font-display font-black text-2xl tracking-wider uppercase text-foreground">
-              BGMI Battle{" "}
-              <span className="text-neon-purple glow-text-purple">Maps</span>
-            </h2>
-          </div>
-          <p className="text-xs text-muted-foreground ml-4 uppercase tracking-wider font-mono">
-            8 Maps · Tap to reveal tactics
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3">
-          {BGMI_MAPS.map((map, i) => (
-            <MapCard key={map.id} map={map} index={i} />
-          ))}
-        </div>
-      </section>
-
-      {/* ===== TOURNAMENTS SECTION ===== */}
-      <section
-        className="container mx-auto px-4 py-10 pb-16"
-        data-ocid="home.tournaments_section"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mb-8"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div
-              className="h-6 w-1 bg-neon-gold rounded-full"
-              style={{ boxShadow: "0 0 8px oklch(0.78 0.19 55)" }}
-            />
-            <h2 className="font-display font-black text-2xl tracking-wider uppercase text-foreground">
-              Explore{" "}
-              <span className="text-neon-gold glow-text-gold">Tournaments</span>
-            </h2>
-            {isSampleData && !isLoading && (
-              <span className="text-[9px] font-mono text-muted-foreground/50 border border-border/40 px-1.5 py-0.5 rounded-sm uppercase tracking-wider">
-                Preview
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground ml-4 uppercase tracking-wider font-mono">
-            Register · Pay · Get Room ID · Dominate
-          </p>
-        </motion.div>
-
-        {isLoading ? (
           <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
-            data-ocid="tournaments.loading_state"
+            className="inline-flex p-1 rounded-xl"
+            style={{
+              background: "oklch(0.10 0.018 255)",
+              border: "1px solid oklch(0.86 0.22 198 / 0.2)",
+            }}
+            data-ocid="home.game_toggle"
           >
-            {[1, 2, 3].map((i) => (
-              <TournamentSkeleton key={i} />
-            ))}
+            <button
+              type="button"
+              onClick={() => setActiveGame(GameType.BGMI)}
+              data-ocid="home.bgmi_tab"
+              className="relative px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all duration-300"
+              style={{
+                background: isBGMI
+                  ? "linear-gradient(135deg, oklch(0.86 0.22 198), oklch(0.72 0.22 210))"
+                  : "transparent",
+                color: isBGMI
+                  ? "oklch(0.06 0.012 255)"
+                  : "oklch(0.52 0.05 225)",
+                boxShadow: isBGMI
+                  ? "0 0 20px oklch(0.86 0.22 198 / 0.4)"
+                  : "none",
+              }}
+            >
+              🎮 BGMI
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveGame(GameType.FreeFire)}
+              data-ocid="home.freefire_tab"
+              className="relative px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all duration-300"
+              style={{
+                background: !isBGMI
+                  ? "linear-gradient(135deg, oklch(0.75 0.22 52), oklch(0.65 0.20 48))"
+                  : "transparent",
+                color: !isBGMI
+                  ? "oklch(0.06 0.012 255)"
+                  : "oklch(0.52 0.05 225)",
+                boxShadow: !isBGMI
+                  ? "0 0 20px oklch(0.75 0.22 52 / 0.4)"
+                  : "none",
+              }}
+            >
+              🔥 Free Fire MAX
+            </button>
           </div>
-        ) : hasNoActiveTournaments ? (
-          /* No active tournaments - stylish empty state */
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="gaming-card rounded-lg p-12 text-center relative overflow-hidden animate-neon-border"
-            data-ocid="home.empty_state"
-          >
-            {/* HUD corners */}
-            <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-primary/50" />
-            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-primary/50" />
+        </motion.div>
 
-            <div className="relative z-10">
+        {/* Maps Section */}
+        <motion.div
+          key={activeGame}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          data-ocid="home.maps_section"
+        >
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-2">
               <div
-                className="w-20 h-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4"
-                style={{ boxShadow: "0 0 30px oklch(0.86 0.22 198 / 0.15)" }}
-              >
-                <Gamepad2 className="w-10 h-10 text-primary/60" />
-              </div>
-              <h3 className="font-display font-black text-xl text-foreground mb-2 uppercase tracking-wider">
-                No Tournaments Right Now
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                The admin hasn't announced any upcoming matches yet.
-                <br />
-                <span className="text-primary font-bold">Check back soon!</span>
-              </p>
+                className="h-6 w-1 rounded-full"
+                style={{
+                  background: isBGMI
+                    ? "oklch(0.68 0.28 285)"
+                    : "oklch(0.75 0.22 52)",
+                  boxShadow: isBGMI
+                    ? "0 0 8px oklch(0.68 0.28 285)"
+                    : "0 0 8px oklch(0.75 0.22 52)",
+                }}
+              />
+              <h2 className="font-display font-black text-2xl tracking-wider uppercase text-foreground">
+                {isBGMI ? (
+                  <>
+                    BGMI Battle{" "}
+                    <span className="text-neon-purple glow-text-purple">
+                      Maps
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Free Fire MAX{" "}
+                    <span
+                      style={{
+                        color: "oklch(0.75 0.22 52)",
+                        textShadow: "0 0 10px oklch(0.75 0.22 52 / 0.9)",
+                      }}
+                    >
+                      Maps
+                    </span>
+                  </>
+                )}
+              </h2>
             </div>
-          </motion.div>
-        ) : (
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
-            data-ocid="tournaments.list"
-          >
-            {displayTournaments.map((tournament, idx) => (
-              <TournamentCard
-                key={tournament.id}
-                tournament={tournament}
-                index={idx}
-                isLoggedIn={isLoggedIn}
-                markerIndex={idx + 1}
-                onJoinFull={() => setFullTournamentDialogOpen(true)}
+            <p className="text-xs text-muted-foreground ml-4 uppercase tracking-wider font-mono">
+              {activeMaps.length} Maps · Tap to reveal tactics
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3 mb-12">
+            {activeMaps.map((map, i) => (
+              <MapCard
+                key={map.id}
+                map={map}
+                index={i}
+                accentColor={isBGMI ? undefined : "oklch(0.75 0.22 52)"}
               />
             ))}
           </div>
-        )}
+        </motion.div>
+
+        {/* Tournaments Section */}
+        <motion.div
+          key={`${activeGame}-tournaments`}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          data-ocid="home.tournaments_section"
+        >
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className="h-6 w-1 bg-neon-gold rounded-full"
+                style={{ boxShadow: "0 0 8px oklch(0.78 0.19 55)" }}
+              />
+              <h2 className="font-display font-black text-2xl tracking-wider uppercase text-foreground">
+                {isBGMI ? "BGMI" : "Free Fire MAX"}{" "}
+                <span className="text-neon-gold glow-text-gold">
+                  Tournaments
+                </span>
+              </h2>
+              {isSampleData && !isLoading && (
+                <span className="text-[9px] font-mono text-muted-foreground/50 border border-border/40 px-1.5 py-0.5 rounded-sm uppercase tracking-wider">
+                  Preview
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground ml-4 uppercase tracking-wider font-mono">
+              Register · Pay · Get Room ID · Dominate
+            </p>
+          </div>
+
+          {isLoading ? (
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+              data-ocid="tournaments.loading_state"
+            >
+              {[1, 2, 3].map((i) => (
+                <TournamentSkeleton key={i} />
+              ))}
+            </div>
+          ) : hasNoActiveTournaments ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="gaming-card rounded-lg p-12 text-center relative overflow-hidden animate-neon-border"
+              data-ocid="home.empty_state"
+            >
+              <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-primary/50" />
+              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-primary/50" />
+              <div className="relative z-10">
+                <div
+                  className="w-20 h-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-4"
+                  style={{ boxShadow: "0 0 30px oklch(0.86 0.22 198 / 0.15)" }}
+                >
+                  <Gamepad2 className="w-10 h-10 text-primary/60" />
+                </div>
+                <h3 className="font-display font-black text-xl text-foreground mb-2 uppercase tracking-wider">
+                  No {isBGMI ? "BGMI" : "Free Fire MAX"} Tournaments Right Now
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                  No active matches at the moment.
+                  <br />
+                  <span className="text-primary font-bold">
+                    Check back soon!
+                  </span>
+                </p>
+              </div>
+            </motion.div>
+          ) : (
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+              data-ocid="tournaments.list"
+            >
+              {displayTournaments.map((tournament, idx) => (
+                <TournamentCard
+                  key={tournament.id}
+                  tournament={tournament}
+                  index={idx}
+                  isLoggedIn={isLoggedIn}
+                  markerIndex={idx + 1}
+                  onJoinFull={() => setFullTournamentDialogOpen(true)}
+                />
+              ))}
+            </div>
+          )}
+        </motion.div>
       </section>
 
       {/* Full Tournament Dialog */}

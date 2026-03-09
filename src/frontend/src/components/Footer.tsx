@@ -1,6 +1,5 @@
 export function Footer() {
   const year = new Date().getFullYear();
-  const hostname = encodeURIComponent(window.location.hostname);
 
   return (
     <footer className="border-t border-border bg-background/80 mt-12">
@@ -22,19 +21,11 @@ export function Footer() {
 
         {/* Attribution */}
         <p className="text-[10px] text-muted-foreground/60 text-center font-mono">
-          © {year} IND eSports. Built with ❤️ using{" "}
-          <a
-            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${hostname}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary/60 hover:text-primary transition-colors"
-          >
-            caffeine.ai
-          </a>
+          © {year} IND eSports. built with ♥️ by Sagar.
         </p>
 
         <div className="text-[10px] text-muted-foreground/40 font-mono uppercase tracking-widest">
-          BGMI Tournament Platform
+          BGMI &amp; Free Fire MAX Tournament Platform
         </div>
       </div>
     </footer>

@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Trophy,
   Upload,
+  Wallet,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useRef, useState } from "react";
@@ -18,6 +19,7 @@ import { PaymentStatus } from "../backend.d";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useCallerRegistrations,
+  useGetUserProfile,
   useListTournaments,
   useUpdatePaymentScreenshot,
 } from "../hooks/useQueries";
@@ -65,6 +67,7 @@ export function MyRegistrationsPage() {
 
   const { data: registrations, isLoading } = useCallerRegistrations();
   const { data: tournaments } = useListTournaments();
+  const { data: userProfile, isLoading: profileLoading } = useGetUserProfile();
   const updateScreenshot = useUpdatePaymentScreenshot();
 
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>(
@@ -116,12 +119,63 @@ export function MyRegistrationsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="flex items-center gap-3 mb-8">
+      <div className="flex items-center gap-3 mb-6">
         <div className="h-5 w-1 bg-primary rounded-full" />
         <h1 className="font-display font-black text-2xl uppercase tracking-wider">
           My Registrations
         </h1>
       </div>
+
+      {/* Profile + Wallet Card */}
+      {!profileLoading && userProfile && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="gaming-card rounded-lg p-5 mb-6"
+          data-ocid="profile.card"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold mb-1">
+                Player Profile
+              </p>
+              <p className="font-display font-black text-lg text-foreground">
+                {userProfile.name}
+              </p>
+              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                <span className="text-xs text-muted-foreground font-mono">
+                  📱 {userProfile.phone}
+                </span>
+                {userProfile.upiId && (
+                  <span className="text-xs text-muted-foreground font-mono">
+                    🏦 {userProfile.upiId}
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* Wallet balance */}
+            <div
+              className="rounded-lg px-5 py-3 text-center"
+              style={{
+                background:
+                  "linear-gradient(135deg, oklch(0.78 0.19 55 / 0.12), oklch(0.72 0.18 50 / 0.08))",
+                border: "1px solid oklch(0.78 0.19 55 / 0.35)",
+                boxShadow: "0 0 15px oklch(0.78 0.19 55 / 0.1)",
+              }}
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Wallet className="w-3.5 h-3.5 text-neon-gold" />
+                <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-bold">
+                  Wallet Balance
+                </span>
+              </div>
+              <p className="font-display font-black text-2xl text-neon-gold glow-text-gold">
+                ₹{userProfile.walletBalance.toString()}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {isLoading ? (
         <div className="space-y-4" data-ocid="my_registrations.loading_state">
@@ -185,7 +239,7 @@ export function MyRegistrationsPage() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                     {[
                       { label: "Player", value: reg.playerName },
-                      { label: "BGMI ID", value: reg.bgmiId },
+                      { label: "Game ID", value: reg.gamePlayerId },
                       { label: "Phone", value: reg.phone },
                     ].map(({ label, value }) => (
                       <div
@@ -264,7 +318,7 @@ export function MyRegistrationsPage() {
                     </div>
                   )}
 
-                  {/* Rejected message + re-upload */}
+                  {/* Rejected message */}
                   {reg.paymentStatus === PaymentStatus.Rejected && (
                     <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded mb-4">
                       <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
@@ -283,6 +337,7 @@ export function MyRegistrationsPage() {
                         onClick={() => fileInputRefs.current[reg.id]?.click()}
                         className="border-border hover:border-primary/60 text-xs uppercase tracking-wider"
                         disabled={updateScreenshot.isPending}
+                        data-ocid={`my_registrations.upload_button.${idx + 1}`}
                       >
                         {updateScreenshot.isPending ? (
                           <RefreshCw className="w-3 h-3 mr-1.5 animate-spin" />
