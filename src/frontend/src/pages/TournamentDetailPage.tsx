@@ -9,13 +9,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle,
   Clock,
   Copy,
+  CreditCard,
   Eye,
   EyeOff,
   IndianRupee,
@@ -27,7 +28,6 @@ import {
   Upload,
   User,
   Users,
-  Wallet,
   Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -40,7 +40,6 @@ import {
   useCallerRegistrations,
   useGetTournament,
   useGetUserProfile,
-  useJoinWithWallet,
   useRegisterForTournament,
   useSaveUserProfile,
 } from "../hooks/useQueries";
@@ -263,8 +262,6 @@ export function TournamentDetailPage() {
   const { data: userProfile } = useGetUserProfile();
   const registerMutation = useRegisterForTournament();
   const saveProfileMutation = useSaveUserProfile();
-  const joinWithWalletMutation = useJoinWithWallet();
-  const navigate = useNavigate();
 
   // Steps: "profile" | "details" | "payment" | "done"
   const [flowStep, setFlowStep] = useState<
@@ -531,7 +528,7 @@ export function TournamentDetailPage() {
           </div>
           <div className="bg-muted/20 rounded p-3 border border-border/40">
             <div className="flex items-center gap-1 mb-1">
-              <Wallet className="w-3 h-3 text-muted-foreground" />
+              <Trophy className="w-3 h-3 text-muted-foreground" />
               <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
                 Prize Pool
               </span>
@@ -758,7 +755,7 @@ export function TournamentDetailPage() {
                         UPI ID
                       </Label>
                       <div className="relative">
-                        <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
+                        <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
                         <Input
                           placeholder="yourname@upi (optional)"
                           value={profileForm.upiId}
@@ -824,144 +821,23 @@ export function TournamentDetailPage() {
                       className="bg-muted/20 border-border focus:border-primary/60"
                     />
                   </div>
-
-                  {/* Wallet join or payment options */}
                   {tournament.entryFee > BigInt(0) ? (
-                    <div className="space-y-3">
-                      {userProfile &&
-                      userProfile.walletBalance >= tournament.entryFee ? (
-                        <div className="space-y-2">
-                          <Button
-                            className={`w-full px-8 ${isFF ? "neon-btn-ff" : "neon-btn"}`}
-                            onClick={async () => {
-                              if (!gamePlayerId.trim()) {
-                                toast.error(
-                                  `Please enter your ${isFF ? "Free Fire MAX" : "BGMI"} ID`,
-                                );
-                                return;
-                              }
-                              try {
-                                await joinWithWalletMutation.mutateAsync({
-                                  tournamentId: id,
-                                  gamePlayerId: gamePlayerId.trim(),
-                                });
-                                toast.success(
-                                  "Joined with wallet! Slot confirmed.",
-                                );
-                                setFlowStep("done");
-                              } catch (err: any) {
-                                toast.error(
-                                  err?.message ?? "Failed to join with wallet",
-                                );
-                              }
-                            }}
-                            disabled={joinWithWalletMutation.isPending}
-                            data-ocid="tournament.wallet_pay_button"
-                          >
-                            {joinWithWalletMutation.isPending ? (
-                              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                            ) : (
-                              <Wallet className="w-4 h-4 mr-2" />
-                            )}
-                            Pay with Wallet (₹{tournament.entryFee.toString()})
-                          </Button>
-                          <p className="text-[10px] text-muted-foreground text-center">
-                            Wallet balance: ₹
-                            {(
-                              userProfile?.walletBalance ?? BigInt(0)
-                            ).toString()}{" "}
-                            · Entry deducted instantly
-                          </p>
-                          <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                              <div className="w-full border-t border-border/40" />
-                            </div>
-                            <div className="relative flex justify-center">
-                              <span className="text-[10px] text-muted-foreground bg-card px-2 uppercase tracking-wider">
-                                or pay via UPI
-                              </span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            className="w-full border-border text-xs"
-                            onClick={() => {
-                              if (!gamePlayerId.trim()) {
-                                toast.error(
-                                  `Please enter your ${isFF ? "Free Fire MAX" : "BGMI"} ID`,
-                                );
-                                return;
-                              }
-                              handleJoinClick();
-                            }}
-                            data-ocid="tournament.join_button"
-                          >
-                            <Zap className="w-4 h-4 mr-2" />
-                            Pay via UPI &amp; Upload Proof
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div
-                            className="rounded-lg p-4 text-sm"
-                            style={{
-                              background: "oklch(0.55 0.22 29 / 0.08)",
-                              border: "1px solid oklch(0.55 0.22 29 / 0.3)",
-                            }}
-                            data-ocid="tournament.insufficient_balance_state"
-                          >
-                            <p
-                              className="font-bold text-xs uppercase tracking-wider mb-1"
-                              style={{ color: "oklch(0.65 0.22 29)" }}
-                            >
-                              Insufficient Wallet Balance
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Need ₹{tournament.entryFee.toString()} · Your
-                              balance: ₹
-                              {(
-                                userProfile?.walletBalance ?? BigInt(0)
-                              ).toString()}
-                            </p>
-                          </div>
-                          <Button
-                            className="w-full neon-btn-gold text-xs"
-                            onClick={() => navigate({ to: "/wallet" })}
-                            data-ocid="tournament.add_cash_button"
-                          >
-                            <Wallet className="w-4 h-4 mr-2" />
-                            Add Cash to Wallet
-                          </Button>
-                          <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                              <div className="w-full border-t border-border/40" />
-                            </div>
-                            <div className="relative flex justify-center">
-                              <span className="text-[10px] text-muted-foreground bg-card px-2 uppercase tracking-wider">
-                                or pay via UPI
-                              </span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            className="w-full border-border text-xs"
-                            onClick={() => {
-                              if (!gamePlayerId.trim()) {
-                                toast.error(
-                                  `Please enter your ${isFF ? "Free Fire MAX" : "BGMI"} ID`,
-                                );
-                                return;
-                              }
-                              handleJoinClick();
-                            }}
-                            data-ocid="tournament.join_button"
-                          >
-                            <Zap className="w-4 h-4 mr-2" />
-                            Pay via UPI &amp; Upload Proof
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                    <Button
+                      className={`w-full px-8 ${isFF ? "neon-btn-ff" : "neon-btn"}`}
+                      onClick={() => {
+                        if (!gamePlayerId.trim()) {
+                          toast.error(
+                            `Please enter your ${isFF ? "Free Fire MAX" : "BGMI"} ID`,
+                          );
+                          return;
+                        }
+                        handleJoinClick();
+                      }}
+                      data-ocid="tournament.join_button"
+                    >
+                      <Zap className="w-4 h-4 mr-2" />
+                      Pay via UPI &amp; Join (₹{tournament.entryFee.toString()})
+                    </Button>
                   ) : (
                     <Button
                       className={`w-full sm:w-auto px-8 ${isFF ? "neon-btn-ff" : "neon-btn"}`}

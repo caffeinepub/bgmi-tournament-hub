@@ -1,15 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
-import {
-  LogIn,
-  LogOut,
-  Menu,
-  Shield,
-  Smartphone,
-  User,
-  Wallet,
-  X,
-} from "lucide-react";
+import { LogIn, LogOut, Menu, Shield, Smartphone, User, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
@@ -17,14 +8,8 @@ import { useIsCallerAdmin } from "../hooks/useQueries";
 
 function LaunchBGMIButton({ className = "" }: { className?: string }) {
   const handleLaunch = () => {
-    try {
-      window.open(
-        "intent://com.pubg.imobile#Intent;scheme=bgmi;package=com.pubg.imobile;end",
-        "_blank",
-      );
-    } catch {
-      window.location.href = "bgmi://launch";
-    }
+    window.location.href =
+      "intent://com.pubg.imobile#Intent;scheme=bgmi;package=com.pubg.imobile;end";
   };
 
   return (
@@ -42,14 +27,8 @@ function LaunchBGMIButton({ className = "" }: { className?: string }) {
 
 function LaunchFFButton({ className = "" }: { className?: string }) {
   const handleLaunch = () => {
-    try {
-      window.open(
-        "intent://com.dts.freefiremax#Intent;scheme=freefiremax;package=com.dts.freefiremax;end",
-        "_blank",
-      );
-    } catch {
-      window.open("https://ff.garena.com", "_blank");
-    }
+    window.location.href =
+      "intent://com.dts.freefiremax#Intent;scheme=freefiremax;package=com.dts.freefiremax;end";
   };
 
   return (
@@ -120,17 +99,6 @@ export function Navbar() {
               activeProps={{ className: "text-primary glow-text-cyan" }}
             >
               My Slots
-            </Link>
-          )}
-          {isLoggedIn && (
-            <Link
-              to="/wallet"
-              data-ocid="nav.wallet_link"
-              className="text-xs font-bold text-muted-foreground hover:text-neon-gold transition-colors uppercase tracking-[0.1em] flex items-center gap-1"
-              activeProps={{ className: "text-neon-gold glow-text-gold" }}
-            >
-              <Wallet className="w-3 h-3" />
-              Wallet
             </Link>
           )}
           {isAdmin && (
@@ -235,17 +203,6 @@ export function Navbar() {
                   className="text-sm font-bold text-muted-foreground hover:text-primary py-2 uppercase tracking-[0.1em]"
                 >
                   My Slots
-                </Link>
-              )}
-              {isLoggedIn && (
-                <Link
-                  to="/wallet"
-                  data-ocid="nav.wallet_link"
-                  onClick={() => setMobileOpen(false)}
-                  className="text-sm font-bold text-muted-foreground hover:text-neon-gold py-2 uppercase tracking-[0.1em] flex items-center gap-1"
-                >
-                  <Wallet className="w-3.5 h-3.5" />
-                  Wallet
                 </Link>
               )}
               {isAdmin && (

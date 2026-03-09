@@ -51,7 +51,6 @@ import {
   Trophy,
   Upload,
   Users,
-  Wallet,
   XCircle,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -63,26 +62,15 @@ import {
   PaymentStatus,
   type Tournament,
   TournamentStatus,
-  type Transaction,
-  TransactionStatus,
-  TransactionType,
 } from "../backend.d";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
-  useAdminApproveAddCash,
-  useAdminApproveWithdrawal,
-  useAdminCreditPrize,
-  useAdminRejectAddCash,
-  useAdminRejectWithdrawal,
-  useAllUsersWithPrincipal,
   useCancelTournament,
   useCreateTournament,
-  useCreditWalletBalance,
   useDeleteTournament,
   useGetAllUsers,
   useIsCallerAdmin,
   useListTournaments,
-  usePendingTransactions,
   useSetRoomDetails,
   useTournamentRegistrations,
   useUpdatePaymentStatus,
@@ -340,32 +328,6 @@ function AdminRegistrationsTab() {
 
 function AdminUsersTab() {
   const { data: users, isLoading } = useGetAllUsers();
-  const creditWallet = useCreditWalletBalance();
-
-  const [creditDialog, setCreditDialog] = useState<{
-    open: boolean;
-    userIndex: number;
-    amount: string;
-  }>({ open: false, userIndex: 0, amount: "" });
-
-  const handleCredit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const user = users?.[creditDialog.userIndex];
-    if (!user) return;
-    const amount = Number.parseInt(creditDialog.amount);
-    if (!amount || amount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-    try {
-      // Note: creditWalletBalance needs a Principal, but UserProfile doesn't have it
-      // We'll show a toast to indicate this limitation
-      toast.info("Wallet credit feature requires backend principal lookup");
-      setCreditDialog({ open: false, userIndex: 0, amount: "" });
-    } catch {
-      toast.error("Failed to credit wallet");
-    }
-  };
 
   if (isLoading) {
     return (
@@ -408,9 +370,6 @@ function AdminUsersTab() {
                 UPI ID
               </TableHead>
               <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Wallet Balance
-              </TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Actions
               </TableHead>
             </TableRow>
@@ -433,104 +392,11 @@ function AdminUsersTab() {
                     <span className="text-muted-foreground/40">—</span>
                   )}
                 </TableCell>
-                <TableCell>
-                  <span className="text-xs font-black text-neon-gold glow-text-gold font-mono">
-                    ₹{user.walletBalance.toString()}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      setCreditDialog({
-                        open: true,
-                        userIndex: idx,
-                        amount: "",
-                      })
-                    }
-                    data-ocid={`admin.credit_button.${idx + 1}`}
-                    className="text-neon-gold hover:text-neon-gold hover:bg-neon-gold/10 text-xs uppercase tracking-wider h-7 px-2"
-                  >
-                    <Wallet className="w-3 h-3 mr-1" />
-                    Credit
-                  </Button>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
-
-      {/* Credit Dialog */}
-      <Dialog
-        open={creditDialog.open}
-        onOpenChange={(o) =>
-          !o && setCreditDialog({ open: false, userIndex: 0, amount: "" })
-        }
-      >
-        <DialogContent
-          className="bg-card border-border max-w-sm"
-          data-ocid="admin.credit.dialog"
-        >
-          <DialogHeader>
-            <DialogTitle className="font-display font-bold text-lg uppercase tracking-wider">
-              Credit Wallet
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs">
-              Credit wallet balance for{" "}
-              <span className="text-primary font-bold">
-                {users[creditDialog.userIndex]?.name}
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCredit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Amount (₹) *
-              </Label>
-              <Input
-                type="number"
-                min="1"
-                value={creditDialog.amount}
-                onChange={(e) =>
-                  setCreditDialog((p) => ({ ...p, amount: e.target.value }))
-                }
-                placeholder="Enter amount to credit"
-                required
-                className="bg-muted/30 border-border"
-                data-ocid="admin.credit.amount_input"
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() =>
-                  setCreditDialog({ open: false, userIndex: 0, amount: "" })
-                }
-                data-ocid="admin.credit.cancel_button"
-                className="border border-border"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="neon-btn-gold"
-                disabled={creditWallet.isPending}
-                data-ocid="admin.credit.confirm_button"
-              >
-                {creditWallet.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Wallet className="w-4 h-4 mr-2" />
-                )}
-                Credit Wallet
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -816,409 +682,6 @@ function TournamentForm({
   );
 }
 
-function AdminTransactionsTab() {
-  const { data: pendingTxs, isLoading: pendingLoading } =
-    usePendingTransactions();
-  const { data: usersWithPrincipal, isLoading: usersLoading } =
-    useAllUsersWithPrincipal();
-  const approveCash = useAdminApproveAddCash();
-  const rejectCash = useAdminRejectAddCash();
-  const approveWithdrawal = useAdminApproveWithdrawal();
-  const rejectWithdrawal = useAdminRejectWithdrawal();
-  const creditPrize = useAdminCreditPrize();
-
-  const [creditForm, setCreditForm] = useState({
-    userIndex: "",
-    amount: "",
-    description: "",
-  });
-
-  const pendingCashTxs = (pendingTxs ?? []).filter(
-    (tx) =>
-      tx.txType === TransactionType.CashAdded &&
-      tx.status === TransactionStatus.Pending,
-  );
-  const pendingWithdrawals = (pendingTxs ?? []).filter(
-    (tx) =>
-      tx.txType === TransactionType.Withdrawal &&
-      tx.status === TransactionStatus.Pending,
-  );
-
-  const getUserName = (userId: string) => {
-    const found = usersWithPrincipal?.find(([p]) => p.toString() === userId);
-    return found ? found[1].name : "Unknown";
-  };
-  const getUserUpi = (userId: string) => {
-    const found = usersWithPrincipal?.find(([p]) => p.toString() === userId);
-    return found ? found[1].upiId : "";
-  };
-
-  const formatDate = (ts: bigint) => {
-    const ms = Number(ts) / 1_000_000;
-    return new Date(ms).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
-  const handleCreditPrize = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (
-      !creditForm.userIndex ||
-      !creditForm.amount ||
-      !creditForm.description.trim()
-    ) {
-      toast.error("Please fill all fields");
-      return;
-    }
-    const idx = Number.parseInt(creditForm.userIndex);
-    const userEntry = usersWithPrincipal?.[idx];
-    if (!userEntry) return;
-    const amount = Number.parseInt(creditForm.amount);
-    if (!amount || amount <= 0) {
-      toast.error("Invalid amount");
-      return;
-    }
-    try {
-      await creditPrize.mutateAsync({
-        user: userEntry[0],
-        amount: BigInt(amount),
-        description: creditForm.description.trim(),
-      });
-      toast.success("Prize credited successfully!");
-      setCreditForm({ userIndex: "", amount: "", description: "" });
-    } catch {
-      toast.error("Failed to credit prize");
-    }
-  };
-
-  const isLoading = pendingLoading || usersLoading;
-
-  return (
-    <div className="space-y-8">
-      {/* Pending Top-ups */}
-      <div>
-        <h3 className="font-display font-bold text-sm uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-green-400" />
-          Pending Top-ups
-        </h3>
-        {isLoading ? (
-          <div
-            className="space-y-2"
-            data-ocid="admin.transactions.loading_state"
-          >
-            {[1, 2].map((i) => (
-              <Skeleton key={i} className="h-12 bg-muted/30 rounded" />
-            ))}
-          </div>
-        ) : pendingCashTxs.length === 0 ? (
-          <div
-            className="text-center py-8 gaming-card rounded-lg"
-            data-ocid="admin.topups.empty_state"
-          >
-            <p className="text-sm text-muted-foreground">
-              No pending top-up requests
-            </p>
-          </div>
-        ) : (
-          <div
-            className="overflow-x-auto rounded-lg border border-border"
-            data-ocid="admin.topups.table"
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Player
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Amount
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Date
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Screenshot
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pendingCashTxs.map((tx, idx) => (
-                  <TableRow
-                    key={tx.id}
-                    className="border-border hover:bg-muted/20"
-                    data-ocid={`admin.topups.row.${idx + 1}`}
-                  >
-                    <TableCell className="font-medium text-sm">
-                      {getUserName(tx.userId.toString())}
-                    </TableCell>
-                    <TableCell className="text-sm font-bold text-green-400">
-                      ₹{tx.amount.toString()}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDate(tx.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      {tx.screenshotId ? (
-                        <a
-                          href={tx.screenshotId}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs underline text-primary"
-                        >
-                          View
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30"
-                          onClick={async () => {
-                            try {
-                              await approveCash.mutateAsync(tx.id);
-                              toast.success("Top-up approved!");
-                            } catch {
-                              toast.error("Failed to approve");
-                            }
-                          }}
-                          disabled={approveCash.isPending}
-                          data-ocid={`admin.topup.approve_button.${idx + 1}`}
-                        >
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs text-destructive hover:bg-destructive/10"
-                          onClick={async () => {
-                            try {
-                              await rejectCash.mutateAsync(tx.id);
-                              toast.success("Request rejected");
-                            } catch {
-                              toast.error("Failed to reject");
-                            }
-                          }}
-                          disabled={rejectCash.isPending}
-                          data-ocid={`admin.topup.reject_button.${idx + 1}`}
-                        >
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
-
-      {/* Pending Withdrawals */}
-      <div>
-        <h3 className="font-display font-bold text-sm uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-yellow-400" />
-          Pending Withdrawals
-        </h3>
-        {isLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map((i) => (
-              <Skeleton key={i} className="h-12 bg-muted/30 rounded" />
-            ))}
-          </div>
-        ) : pendingWithdrawals.length === 0 ? (
-          <div
-            className="text-center py-8 gaming-card rounded-lg"
-            data-ocid="admin.withdrawals.empty_state"
-          >
-            <p className="text-sm text-muted-foreground">
-              No pending withdrawal requests
-            </p>
-          </div>
-        ) : (
-          <div
-            className="overflow-x-auto rounded-lg border border-border"
-            data-ocid="admin.withdrawals.table"
-          >
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Player
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    UPI ID
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Amount
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Date
-                  </TableHead>
-                  <TableHead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pendingWithdrawals.map((tx, idx) => (
-                  <TableRow
-                    key={tx.id}
-                    className="border-border hover:bg-muted/20"
-                    data-ocid={`admin.withdrawals.row.${idx + 1}`}
-                  >
-                    <TableCell className="font-medium text-sm">
-                      {getUserName(tx.userId.toString())}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {getUserUpi(tx.userId.toString()) || tx.description}
-                    </TableCell>
-                    <TableCell className="text-sm font-bold text-yellow-400">
-                      ₹{tx.amount.toString()}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDate(tx.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30"
-                          onClick={async () => {
-                            try {
-                              await approveWithdrawal.mutateAsync(tx.id);
-                              toast.success("Withdrawal approved!");
-                            } catch {
-                              toast.error("Failed to approve");
-                            }
-                          }}
-                          disabled={approveWithdrawal.isPending}
-                          data-ocid={`admin.withdrawal.approve_button.${idx + 1}`}
-                        >
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs text-destructive hover:bg-destructive/10"
-                          onClick={async () => {
-                            try {
-                              await rejectWithdrawal.mutateAsync(tx.id);
-                              toast.success("Withdrawal rejected");
-                            } catch {
-                              toast.error("Failed to reject");
-                            }
-                          }}
-                          disabled={rejectWithdrawal.isPending}
-                          data-ocid={`admin.withdrawal.reject_button.${idx + 1}`}
-                        >
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
-
-      {/* Credit Prize Money */}
-      <div>
-        <h3 className="font-display font-bold text-sm uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-yellow-400" />
-          Credit Prize Money
-        </h3>
-        <form
-          onSubmit={handleCreditPrize}
-          className="gaming-card rounded-xl p-5 space-y-4"
-          data-ocid="admin.credit_prize_form"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                Player *
-              </Label>
-              <select
-                className="w-full h-9 rounded-md border border-border bg-muted/20 px-3 text-sm text-foreground"
-                value={creditForm.userIndex}
-                onChange={(e) =>
-                  setCreditForm((p) => ({ ...p, userIndex: e.target.value }))
-                }
-                required
-                data-ocid="admin.credit_prize_player_select"
-              >
-                <option value="">Select player</option>
-                {(usersWithPrincipal ?? []).map(([, profile], idx) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: index is the stable key here
-                  <option key={idx} value={idx.toString()}>
-                    {profile.name} — {profile.phone}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                Amount (₹) *
-              </Label>
-              <Input
-                type="number"
-                min="1"
-                placeholder="Prize amount"
-                value={creditForm.amount}
-                onChange={(e) =>
-                  setCreditForm((p) => ({ ...p, amount: e.target.value }))
-                }
-                className="bg-muted/20 border-border"
-                data-ocid="admin.credit_prize_amount_input"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                Description *
-              </Label>
-              <Input
-                placeholder="e.g. 1st place prize"
-                value={creditForm.description}
-                onChange={(e) =>
-                  setCreditForm((p) => ({ ...p, description: e.target.value }))
-                }
-                className="bg-muted/20 border-border"
-                data-ocid="admin.credit_prize_description_input"
-                required
-              />
-            </div>
-          </div>
-          <Button
-            type="submit"
-            className="neon-btn-gold text-xs"
-            disabled={creditPrize.isPending}
-            data-ocid="admin.credit_prize_submit_button"
-          >
-            {creditPrize.isPending ? (
-              <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
-            ) : null}
-            Credit Prize Money
-          </Button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 export function AdminPage() {
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
@@ -1436,13 +899,6 @@ export function AdminPage() {
           >
             Users
           </TabsTrigger>
-          <TabsTrigger
-            value="transactions"
-            data-ocid="admin.transactions_tab"
-            className="uppercase tracking-wider text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
-          >
-            Transactions
-          </TabsTrigger>
         </TabsList>
 
         {/* Tournaments Tab */}
@@ -1630,17 +1086,6 @@ export function AdminPage() {
             </h2>
           </div>
           <AdminUsersTab />
-        </TabsContent>
-
-        {/* Transactions Tab */}
-        <TabsContent value="transactions">
-          <div className="flex items-center gap-3 mb-4">
-            <Wallet className="w-4 h-4 text-primary" />
-            <h2 className="font-display font-bold text-base uppercase tracking-wider text-muted-foreground">
-              Transactions &amp; Payments
-            </h2>
-          </div>
-          <AdminTransactionsTab />
         </TabsContent>
       </Tabs>
 

@@ -8,7 +8,6 @@ import { AdminPage } from "./pages/AdminPage";
 import { HomePage } from "./pages/HomePage";
 import { MyRegistrationsPage } from "./pages/MyRegistrationsPage";
 import { TournamentDetailPage } from "./pages/TournamentDetailPage";
-import { WalletPage } from "./pages/WalletPage";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -51,12 +50,6 @@ const myRegistrationsRoute = createRoute({
   component: MyRegistrationsPage,
 });
 
-const walletRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/wallet",
-  component: WalletPage,
-});
-
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
@@ -67,7 +60,6 @@ const routeTree = rootRoute.addChildren([
   homeRoute,
   tournamentDetailRoute,
   myRegistrationsRoute,
-  walletRoute,
   adminRoute,
 ]);
 
