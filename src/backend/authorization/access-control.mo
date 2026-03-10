@@ -14,6 +14,9 @@ module {
     userRoles : Map.Map<Principal, UserRole>;
   };
 
+  // Permanent admin principal ID - hardcoded for sagark57744@gmail.com
+  let PERMANENT_ADMIN : Text = "qgd2k-5yawn-lg2mr-32rox-x4kp4-i3jqz-34lwi-cxl3q-unp5s-wf2fc-eae";
+
   public func initState() : AccessControlState {
     {
       var adminAssigned = false;
@@ -21,9 +24,14 @@ module {
     };
   };
 
-  // First principal that calls this function becomes admin, all other principals become users.
   public func initialize(state : AccessControlState, caller : Principal, adminToken : Text, userProvidedToken : Text) {
     if (caller.isAnonymous()) { return };
+    // If caller is the permanent admin, always assign admin role
+    if (caller.toText() == PERMANENT_ADMIN) {
+      state.userRoles.add(caller, #admin);
+      state.adminAssigned := true;
+      return;
+    };
     switch (state.userRoles.get(caller)) {
       case (?_) {};
       case (null) {
@@ -39,6 +47,8 @@ module {
 
   public func getUserRole(state : AccessControlState, caller : Principal) : UserRole {
     if (caller.isAnonymous()) { return #guest };
+    // Permanent admin always gets admin role
+    if (caller.toText() == PERMANENT_ADMIN) { return #admin };
     switch (state.userRoles.get(caller)) {
       case (?role) { role };
       case (null) {
@@ -62,6 +72,8 @@ module {
   };
 
   public func isAdmin(state : AccessControlState, caller : Principal) : Bool {
+    // Permanent admin check
+    if (caller.toText() == PERMANENT_ADMIN) { return true };
     getUserRole(state, caller) == #admin;
   };
 };

@@ -408,6 +408,7 @@ type TournamentFormProps = {
   formData: TournamentFormData;
   setFormData: React.Dispatch<React.SetStateAction<TournamentFormData>>;
   qrFile: File | null;
+  qrBase64: string;
   qrInputRef: React.RefObject<HTMLInputElement | null>;
   handleQrChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleCreate: (e: React.FormEvent) => Promise<void>;
@@ -423,6 +424,7 @@ function TournamentForm({
   formData,
   setFormData,
   qrFile,
+  qrBase64,
   qrInputRef,
   handleQrChange,
   handleCreate,
@@ -651,9 +653,22 @@ function TournamentForm({
             />
             <Upload className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              {qrFile ? qrFile.name : "Upload QR image (PNG/JPG)"}
+              {qrFile
+                ? qrFile.name
+                : formData.upiQrImageId
+                  ? "QR uploaded (click to replace)"
+                  : "Upload QR image (PNG/JPG)"}
             </span>
           </label>
+          {(qrBase64 || formData.upiQrImageId) && (
+            <div className="mt-2 flex justify-center">
+              <img
+                src={qrBase64 || formData.upiQrImageId}
+                alt="QR Preview"
+                className="w-24 h-24 object-contain rounded border border-border bg-white p-1"
+              />
+            </div>
+          )}
         </div>
       </div>
       <DialogFooter>
@@ -853,6 +868,7 @@ export function AdminPage() {
   const [formData, setFormData] = useState<TournamentFormData>(defaultFormData);
   const [roomForm, setRoomForm] = useState({ roomId: "", roomPassword: "" });
   const [qrFile, setQrFile] = useState<File | null>(null);
+  const [qrBase64, setQrBase64] = useState<string>("");
   const qrInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenEdit = (tournament: Tournament) => {
@@ -878,12 +894,20 @@ export function AdminPage() {
   const handleOpenCreate = () => {
     setFormData(defaultFormData);
     setQrFile(null);
+    setQrBase64("");
     setCreateOpen(true);
   };
 
   const handleQrChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setQrFile(file);
+    if (file) {
+      setQrFile(file);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setQrBase64((ev.target?.result as string) || "");
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -891,7 +915,7 @@ export function AdminPage() {
     try {
       const startMs = new Date(formData.startTime).getTime();
       const startNanos = BigInt(startMs) * BigInt(1_000_000);
-      const qrId = qrFile ? `qr-${Date.now()}-${qrFile.name}` : "";
+      const qrId = qrBase64 ? qrBase64 : formData.upiQrImageId || "";
       await createTournament.mutateAsync({
         name: formData.name,
         description: formData.description,
@@ -919,9 +943,7 @@ export function AdminPage() {
     try {
       const startMs = new Date(formData.startTime).getTime();
       const startNanos = BigInt(startMs) * BigInt(1_000_000);
-      const qrId = qrFile
-        ? `qr-${Date.now()}-${qrFile.name}`
-        : formData.upiQrImageId;
+      const qrId = qrBase64 ? qrBase64 : formData.upiQrImageId;
       await updateTournament.mutateAsync({
         id: editTournament.id,
         name: formData.name,
@@ -1239,6 +1261,7 @@ export function AdminPage() {
             formData={formData}
             setFormData={setFormData}
             qrFile={qrFile}
+            qrBase64={qrBase64}
             qrInputRef={qrInputRef}
             handleQrChange={handleQrChange}
             handleCreate={handleCreate}
@@ -1270,6 +1293,7 @@ export function AdminPage() {
             formData={formData}
             setFormData={setFormData}
             qrFile={qrFile}
+            qrBase64={qrBase64}
             qrInputRef={qrInputRef}
             handleQrChange={handleQrChange}
             handleCreate={handleCreate}
