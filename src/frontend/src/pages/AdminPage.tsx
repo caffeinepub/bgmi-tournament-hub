@@ -37,18 +37,19 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle,
+  Copy,
   Edit,
   Key,
   Loader2,
+  LogIn,
   OctagonX,
   Plus,
   Shield,
   Trash2,
-  Trophy,
   Upload,
   Users,
   XCircle,
@@ -63,6 +64,7 @@ import {
   type Tournament,
   TournamentStatus,
 } from "../backend.d";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useCancelTournament,
@@ -682,9 +684,154 @@ function TournamentForm({
   );
 }
 
+function ClaimAdminScreen() {
+  const { identity, login, isLoggingIn } = useInternetIdentity();
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  const [token, setToken] = useState("");
+  const [claiming, setClaiming] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const principalId = identity?.getPrincipal().toString() ?? null;
+
+  const handleCopy = () => {
+    if (!principalId) return;
+    navigator.clipboard.writeText(principalId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleClaim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!actor || !token.trim()) return;
+    setClaiming(true);
+    try {
+      await (actor as any)._initializeAccessControlWithSecret(token.trim());
+      await queryClient.invalidateQueries({ queryKey: ["isAdmin"] });
+      await queryClient.refetchQueries({ queryKey: ["isAdmin"] });
+      toast.success("Admin access mil gaya! Reload ho raha hai...");
+      setTimeout(() => window.location.reload(), 1200);
+    } catch {
+      toast.error("Token galat hai. Dobara check karo.");
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 py-16">
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="gaming-card rounded-xl p-8 w-full max-w-md border border-border"
+        data-ocid="admin.claim.card"
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center border border-accent/20">
+            <Shield className="w-5 h-5 text-accent" />
+          </div>
+          <div>
+            <h1 className="font-display font-black text-xl uppercase tracking-wider text-accent">
+              Admin Access
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              IND eSports Admin Panel
+            </p>
+          </div>
+        </div>
+
+        {!identity ? (
+          <div className="text-center py-6 space-y-4">
+            <p className="text-muted-foreground text-sm">
+              Pehle apne account se login karo.
+            </p>
+            <Button
+              className="neon-btn w-full"
+              onClick={() => login()}
+              disabled={isLoggingIn}
+              data-ocid="admin.claim.login_button"
+            >
+              {isLoggingIn ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <LogIn className="w-4 h-4 mr-2" />
+              )}
+              Login
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Principal ID section */}
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Tumhara Principal ID
+              </Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-[11px] font-mono bg-muted/30 border border-border rounded px-3 py-2 break-all text-foreground/80">
+                  {principalId}
+                </code>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCopy}
+                  className="shrink-0 border border-border h-9 w-9 p-0 hover:bg-accent/10"
+                  data-ocid="admin.claim.copy_button"
+                >
+                  {copied ? (
+                    <CheckCircle className="w-4 h-4 text-accent" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground/70">
+                Yeh ID copy karke developer ko bhejo taaki admin permanently set
+                ho sake.
+              </p>
+            </div>
+
+            {/* Token form */}
+            <form onSubmit={handleClaim} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Admin Token
+                </Label>
+                <Input
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="Admin token yahan paste karo..."
+                  className="bg-muted/30 border-border font-mono text-sm"
+                  data-ocid="admin.claim.token_input"
+                />
+                <p className="text-[11px] text-muted-foreground/70">
+                  Token Caffeine support se milega.
+                </p>
+              </div>
+              <Button
+                type="submit"
+                className="neon-btn-green w-full"
+                disabled={!token.trim() || claiming}
+                data-ocid="admin.claim.submit_button"
+              >
+                {claiming ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Shield className="w-4 h-4 mr-2" />
+                )}
+                Claim Admin Access
+              </Button>
+            </form>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
 export function AdminPage() {
-  const navigate = useNavigate();
-  const { identity } = useInternetIdentity();
   const { data: isAdmin, isLoading: adminLoading } = useIsCallerAdmin();
   const { data: tournaments, isLoading: tournamentsLoading } =
     useListTournaments();
@@ -707,19 +854,6 @@ export function AdminPage() {
   const [roomForm, setRoomForm] = useState({ roomId: "", roomPassword: "" });
   const [qrFile, setQrFile] = useState<File | null>(null);
   const qrInputRef = useRef<HTMLInputElement>(null);
-
-  // Redirect if not admin
-  useEffect(() => {
-    if (!adminLoading && !identity) {
-      void navigate({ to: "/" });
-    }
-  }, [adminLoading, identity, navigate]);
-
-  useEffect(() => {
-    if (!adminLoading && isAdmin === false) {
-      void navigate({ to: "/" });
-    }
-  }, [adminLoading, isAdmin, navigate]);
 
   const handleOpenEdit = (tournament: Tournament) => {
     setEditTournament(tournament);
@@ -864,7 +998,7 @@ export function AdminPage() {
     );
   }
 
-  if (!isAdmin) return null;
+  if (!isAdmin) return <ClaimAdminScreen />;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">

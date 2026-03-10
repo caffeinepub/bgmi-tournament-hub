@@ -2,7 +2,7 @@ import Text "mo:core/Text";
 import Nat "mo:core/Nat";
 import Map "mo:core/Map";
 import Iter "mo:core/Iter";
-import List "mo:core/List";
+import _List "mo:core/List";
 import Time "mo:core/Time";
 import Order "mo:core/Order";
 import Runtime "mo:core/Runtime";
@@ -10,7 +10,7 @@ import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import MixinStorage "blob-storage/Mixin";
-import Storage "blob-storage/Storage";
+import _Storage "blob-storage/Storage";
 
 import AccessControl "authorization/access-control";
 
@@ -201,8 +201,13 @@ actor {
   };
 
   public shared ({ caller }) func saveCallerUserProfile(name : Text, phone : Phone, upiId : UpiId) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Anonymous users cannot create profiles");
+    };
+    // Auto-register as user if first time (new user account creation)
+    switch (accessControlState.userRoles.get(caller)) {
+      case (null) { accessControlState.userRoles.add(caller, #user) };
+      case (?_) {};
     };
 
     let existingProfile = switch (userProfiles.get(caller)) {
@@ -807,7 +812,7 @@ actor {
 
     switch (userProfiles.get(caller)) {
       case (null) { Runtime.trap("User profile not found") };
-      case (?profile) {
+      case (?_profile) {
         switch (tournaments.get(tournamentId)) {
           case (null) { Runtime.trap("Tournament not found") };
           case (?tournament) {

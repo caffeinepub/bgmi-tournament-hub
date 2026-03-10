@@ -1,10 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
-import { LogIn, LogOut, Menu, Shield, Smartphone, User, X } from "lucide-react";
+import {
+  LogIn,
+  LogOut,
+  Menu,
+  Shield,
+  Smartphone,
+  User,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { useAccountSetup } from "../contexts/AccountSetupContext";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useIsCallerAdmin } from "../hooks/useQueries";
+import { useGetUserProfile, useIsCallerAdmin } from "../hooks/useQueries";
 
 function LaunchBGMIButton({ className = "" }: { className?: string }) {
   const handleLaunch = () => {
@@ -44,13 +54,37 @@ function LaunchFFButton({ className = "" }: { className?: string }) {
   );
 }
 
+/** Small chip showing the currently logged-in player name */
+function UserInfoChip({
+  name,
+  className = "",
+}: {
+  name: string;
+  className?: string;
+}) {
+  const displayName = name.length > 14 ? `${name.slice(0, 13)}\u2026` : name;
+  return (
+    <div
+      data-ocid="nav.user_info_card"
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-[0.08em] select-none shrink-0 ${className}`}
+    >
+      <User className="w-3 h-3 shrink-0" />
+      <span className="max-w-[110px] truncate">{displayName}</span>
+    </div>
+  );
+}
+
 export function Navbar() {
   const { login, clear, identity, isLoggingIn, isInitializing } =
     useInternetIdentity();
   const { data: isAdmin } = useIsCallerAdmin();
+  const { data: userProfile, isLoading: profileLoading } = useGetUserProfile();
+  const { openAccountSetup } = useAccountSetup();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isLoggedIn = !!identity;
+  const needsProfile = isLoggedIn && !profileLoading && userProfile === null;
+  const playerName: string | null = userProfile?.name ? userProfile.name : null;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
@@ -121,12 +155,30 @@ export function Navbar() {
 
           {isLoggedIn ? (
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-border bg-muted/20">
-                <User className="w-3 h-3 text-primary" />
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  {identity?.getPrincipal().toString().slice(0, 8)}…
-                </span>
-              </div>
+              {/* User info chip */}
+              {playerName ? (
+                <UserInfoChip name={playerName} />
+              ) : needsProfile ? (
+                <div
+                  data-ocid="nav.user_info_card"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-muted/40 bg-muted/10 text-muted-foreground text-[10px] font-bold uppercase tracking-[0.08em] select-none"
+                >
+                  <User className="w-3 h-3 shrink-0" />
+                  <span>Guest</span>
+                </div>
+              ) : null}
+
+              {needsProfile && (
+                <Button
+                  size="sm"
+                  onClick={openAccountSetup}
+                  data-ocid="nav.complete_profile_button"
+                  className="neon-btn text-[10px] h-8 px-3 animate-pulse"
+                >
+                  <UserPlus className="w-3 h-3 mr-1" />
+                  Complete Profile
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -147,7 +199,7 @@ export function Navbar() {
               className="neon-btn px-4 py-1.5 text-[10px] h-8"
             >
               {isLoggingIn ? (
-                <span className="animate-pulse">Connecting…</span>
+                <span className="animate-pulse">Connecting\u2026</span>
               ) : (
                 <>
                   <LogIn className="w-3 h-3 mr-1.5" />
@@ -187,6 +239,23 @@ export function Navbar() {
             className="md:hidden border-t border-border bg-background/95 backdrop-blur-md"
           >
             <div className="container mx-auto px-4 py-4 flex flex-col gap-3">
+              {/* Mobile user chip at top */}
+              {isLoggedIn && (
+                <div className="pb-2 border-b border-border/50">
+                  {playerName ? (
+                    <UserInfoChip name={playerName} className="w-fit" />
+                  ) : (
+                    <div
+                      data-ocid="nav.user_info_card"
+                      className="flex items-center gap-1.5 px-2.5 py-1 w-fit rounded-full border border-muted/40 bg-muted/10 text-muted-foreground text-[10px] font-bold uppercase tracking-[0.08em] select-none"
+                    >
+                      <User className="w-3 h-3 shrink-0" />
+                      <span>Guest</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <Link
                 to="/"
                 data-ocid="nav.home_link"
@@ -216,7 +285,21 @@ export function Navbar() {
                   Admin Panel
                 </Link>
               )}
-              <div className="pt-2 border-t border-border">
+              <div className="pt-2 border-t border-border flex flex-col gap-2">
+                {needsProfile && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      openAccountSetup();
+                      setMobileOpen(false);
+                    }}
+                    data-ocid="nav.complete_profile_button"
+                    className="neon-btn w-full text-xs"
+                  >
+                    <UserPlus className="w-3 h-3 mr-2" />
+                    Complete Your Profile
+                  </Button>
+                )}
                 {isLoggedIn ? (
                   <Button
                     variant="ghost"

@@ -8,23 +8,22 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Phone, User, Wallet } from "lucide-react";
+import { CreditCard, Gamepad2, Loader2, Phone, User } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useGetUserProfile, useSaveUserProfile } from "../hooks/useQueries";
+import { useAccountSetup } from "../contexts/AccountSetupContext";
+import { useActor } from "../hooks/useActor";
+import { useSaveUserProfile } from "../hooks/useQueries";
 
 export function AccountSetupModal() {
-  const { identity } = useInternetIdentity();
-  const { data: userProfile, isLoading } = useGetUserProfile();
+  const { isOpen, closeAccountSetup } = useAccountSetup();
+  const { actor, isFetching } = useActor();
   const saveProfile = useSaveUserProfile();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [upiId, setUpiId] = useState("");
-
-  // Show modal only when logged in + profile is null (first time)
-  const isOpen = !!identity && !isLoading && userProfile === null;
+  const [bgmiNickname, setBgmiNickname] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,14 +39,28 @@ export function AccountSetupModal() {
       toast.error("Please enter your UPI ID");
       return;
     }
+    if (!actor) {
+      toast.error("Not connected. Please wait a moment and try again.");
+      return;
+    }
     try {
+      const displayName = bgmiNickname.trim()
+        ? `${name.trim()} | BGMI: ${bgmiNickname.trim()}`
+        : name.trim();
       await saveProfile.mutateAsync({
-        name: name.trim(),
+        name: displayName,
         phone: phone.trim(),
         upiId: upiId.trim(),
       });
       toast.success("Account created successfully! Welcome to IND eSports!");
-    } catch {
+      closeAccountSetup();
+      // Reset form
+      setName("");
+      setPhone("");
+      setUpiId("");
+      setBgmiNickname("");
+    } catch (err) {
+      console.error("Account creation error:", err);
       toast.error("Failed to create account. Please try again.");
     }
   };
@@ -55,13 +68,16 @@ export function AccountSetupModal() {
   if (!isOpen) return null;
 
   return (
-    <Dialog open={true} onOpenChange={() => {}}>
+    <Dialog
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) closeAccountSetup();
+      }}
+    >
       <DialogContent
         className="bg-card border-border max-w-md"
         data-ocid="account_setup.dialog"
-        // Prevent closing - user must complete setup
         onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Top neon accent */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary/70 to-transparent rounded-t-lg" />
@@ -84,9 +100,8 @@ export function AccountSetupModal() {
           </div>
           <DialogDescription className="text-muted-foreground text-xs leading-relaxed">
             Welcome to{" "}
-            <span className="text-primary font-bold">IND eSports</span>! Set up
-            your permanent account to join tournaments, track payments, and
-            receive winnings.
+            <span className="text-primary font-bold">IND eSports</span>! Fill in
+            your details to join tournaments and receive prize money.
           </DialogDescription>
         </DialogHeader>
 
@@ -112,7 +127,7 @@ export function AccountSetupModal() {
           {/* Phone */}
           <div className="space-y-1.5">
             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-              Phone Number *
+              Mobile Number *
             </Label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
@@ -127,7 +142,7 @@ export function AccountSetupModal() {
               />
             </div>
             <p className="text-[10px] text-muted-foreground/60">
-              Must be a valid 10-digit Indian number
+              Must be a valid 10-digit Indian number starting with 6-9
             </p>
           </div>
 
@@ -137,7 +152,7 @@ export function AccountSetupModal() {
               UPI ID *
             </Label>
             <div className="relative">
-              <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
+              <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
               <Input
                 placeholder="yourname@upi or phone@paytm"
                 value={upiId}
@@ -148,37 +163,40 @@ export function AccountSetupModal() {
               />
             </div>
             <p className="text-[10px] text-muted-foreground/60">
-              Used to receive prize winnings directly to your wallet
+              Used by admin to send prize money directly to you
             </p>
           </div>
 
-          {/* Wallet info note */}
-          <div
-            className="p-3 rounded-lg"
-            style={{
-              background: "oklch(0.86 0.22 198 / 0.06)",
-              border: "1px solid oklch(0.86 0.22 198 / 0.2)",
-            }}
-          >
-            <div className="flex items-start gap-2">
-              <Wallet className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
-                A wallet will be created automatically. Admin can credit prize
-                money directly to your wallet after tournament results.
-              </p>
+          {/* BGMI Nickname */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+              BGMI Nickname / UID
+            </Label>
+            <div className="relative">
+              <Gamepad2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
+              <Input
+                placeholder="Your BGMI nickname or UID (optional)"
+                value={bgmiNickname}
+                onChange={(e) => setBgmiNickname(e.target.value)}
+                data-ocid="account_setup.bgmi_input"
+                className="bg-muted/20 border-border focus:border-primary/60 pl-9"
+              />
             </div>
+            <p className="text-[10px] text-muted-foreground/60">
+              Paste your BGMI nickname or player UID here
+            </p>
           </div>
 
           <Button
             type="submit"
             className="neon-btn w-full"
-            disabled={saveProfile.isPending}
+            disabled={saveProfile.isPending || isFetching}
             data-ocid="account_setup.submit_button"
           >
-            {saveProfile.isPending ? (
+            {saveProfile.isPending || isFetching ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Creating Account…
+                {isFetching ? "Connecting…" : "Creating Account…"}
               </>
             ) : (
               "Create My Account →"

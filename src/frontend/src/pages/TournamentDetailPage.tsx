@@ -22,18 +22,19 @@ import {
   IndianRupee,
   Loader2,
   Medal,
+  MessageCircle,
   Phone,
   QrCode,
   Trophy,
-  Upload,
   User,
   Users,
   Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { GameType, PaymentStatus, TournamentStatus } from "../backend.d";
+import { useAccountSetup } from "../contexts/AccountSetupContext";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
@@ -255,6 +256,7 @@ export function TournamentDetailPage() {
   const { identity, login } = useInternetIdentity();
   const isLoggedIn = !!identity;
   const { actor, isFetching: actorFetching } = useActor();
+  const { openAccountSetup } = useAccountSetup();
 
   const { data: tournament, isLoading: tournamentLoading } =
     useGetTournament(id);
@@ -273,13 +275,9 @@ export function TournamentDetailPage() {
     upiId: "",
   });
   const [gamePlayerId, setGamePlayerId] = useState("");
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
-  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(
-    null,
-  );
+  const [whatsappSent, setWhatsappSent] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fullDialogOpen, setFullDialogOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const myRegistration = myRegistrations?.find((r) => r.tournamentId === id);
   const isFF = tournament?.gameType === GameType.FreeFire;
@@ -290,33 +288,17 @@ export function TournamentDetailPage() {
     ? "Your Free Fire MAX player ID"
     : "Your BGMI player ID";
 
-  // Check if profile is complete when user logs in
+  // When logged in and profile loaded - pre-fill form if profile exists
   useEffect(() => {
-    if (isLoggedIn && userProfile !== undefined) {
-      if (!userProfile || !userProfile.phone) {
-        setFlowStep("profile");
-      } else {
-        setProfileForm({
-          name: userProfile.name,
-          phone: userProfile.phone,
-          upiId: userProfile.upiId ?? "",
-        });
-        setFlowStep("details");
-      }
+    if (isLoggedIn && userProfile !== undefined && userProfile !== null) {
+      setProfileForm({
+        name: userProfile.name,
+        phone: userProfile.phone,
+        upiId: userProfile.upiId ?? "",
+      });
+      setFlowStep("details");
     }
   }, [isLoggedIn, userProfile]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file");
-      return;
-    }
-    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
-    setScreenshotFile(file);
-    setScreenshotPreview(URL.createObjectURL(file));
-  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -343,13 +325,28 @@ export function TournamentDetailPage() {
 
   const handleJoinClick = () => {
     if (!tournament) return;
+    if (!userProfile) {
+      openAccountSetup();
+      toast.info("Please complete your profile first to join tournaments.");
+      return;
+    }
     setFlowStep("payment");
+  };
+
+  const handleWhatsAppClick = () => {
+    if (!tournament) return;
+    const playerName = userProfile?.name ?? profileForm.name;
+    const message = encodeURIComponent(
+      `*IND eSports - Tournament Registration*\nTournament: ${tournament.name}\nPlayer: ${playerName}\nGame ID: ${gamePlayerId}\nAmount: ₹${tournament.entryFee}\n\n_Sending payment screenshot_`,
+    );
+    window.open(`https://wa.me/916299012911?text=${message}`, "_blank");
+    setWhatsappSent(true);
   };
 
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!screenshotFile) {
-      toast.error("Please upload your payment screenshot");
+    if (!whatsappSent) {
+      toast.error("Please send your payment screenshot via WhatsApp first");
       return;
     }
     if (!gamePlayerId.trim()) {
@@ -358,7 +355,7 @@ export function TournamentDetailPage() {
     }
     setUploading(true);
     try {
-      const screenshotId = `screenshot-${Date.now()}-${screenshotFile.name}`;
+      const screenshotId = `whatsapp-sent-${Date.now()}`;
       await registerMutation.mutateAsync({
         tournamentId: id,
         playerName: userProfile?.name ?? profileForm.name,
@@ -876,7 +873,7 @@ export function TournamentDetailPage() {
                         Payment
                       </h2>
                       <p className="text-xs text-muted-foreground">
-                        Scan QR, pay, upload screenshot
+                        Scan QR, pay, then send screenshot via WhatsApp
                       </p>
                     </div>
                     <button
@@ -948,71 +945,101 @@ export function TournamentDetailPage() {
                       <strong className="text-primary">
                         ₹{tournament.entryFee.toString()}
                       </strong>{" "}
-                      via UPI, then upload screenshot below
+                      via UPI, then send screenshot on WhatsApp below
                     </p>
                   </div>
 
-                  {/* Screenshot upload */}
-                  <div className="space-y-2">
+                  {/* WhatsApp screenshot section */}
+                  <div className="space-y-3">
                     <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                      Upload Payment Screenshot *
+                      Send Payment Screenshot *
                     </Label>
-                    <label
-                      className="block border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/60 transition-colors bg-muted/10"
-                      data-ocid="tournament.upload_button"
+
+                    <div
+                      className="rounded-lg p-5 border"
+                      style={{
+                        background: "oklch(0.12 0.03 145 / 0.3)",
+                        borderColor: whatsappSent
+                          ? "oklch(0.65 0.22 145 / 0.5)"
+                          : "oklch(0.35 0.05 145 / 0.4)",
+                      }}
                     >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleFileChange}
-                      />
-                      {screenshotPreview ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <img
-                            src={screenshotPreview}
-                            alt="Payment screenshot"
-                            className="max-h-36 rounded-lg object-contain border border-border"
-                          />
-                          <p className="text-xs text-neon-green font-bold">
-                            ✓ {screenshotFile?.name}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            Tap to change
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <Upload className="w-8 h-8 text-muted-foreground/40" />
-                          <p className="text-sm text-muted-foreground">
-                            Click to upload payment screenshot
-                          </p>
-                          <p className="text-[10px] text-muted-foreground/50">
-                            PNG, JPG up to 10MB
-                          </p>
-                        </div>
-                      )}
-                    </label>
+                      <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
+                        After paying via UPI, open WhatsApp and send your
+                        payment screenshot directly to the admin. Tap the button
+                        below to open WhatsApp with the tournament details
+                        pre-filled.
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={handleWhatsAppClick}
+                        data-ocid="tournament.upload_button"
+                        className="w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-lg font-bold text-sm transition-all active:scale-95"
+                        style={{
+                          background: whatsappSent
+                            ? "oklch(0.50 0.16 145 / 0.25)"
+                            : "#25D366",
+                          color: whatsappSent ? "oklch(0.75 0.22 145)" : "#fff",
+                          border: whatsappSent
+                            ? "1px solid oklch(0.65 0.22 145 / 0.5)"
+                            : "none",
+                          boxShadow: whatsappSent
+                            ? "none"
+                            : "0 4px 18px #25D36640",
+                        }}
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        {whatsappSent
+                          ? "✓ Opened WhatsApp — Tap to re-open"
+                          : "Send Screenshot via WhatsApp"}
+                      </button>
+
+                      <AnimatePresence>
+                        {whatsappSent && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="mt-3 flex items-center gap-2 text-xs font-semibold"
+                            style={{ color: "oklch(0.75 0.22 145)" }}
+                          >
+                            <CheckCircle className="w-4 h-4 shrink-0" />
+                            Screenshot sent! Now confirm your registration
+                            below.
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
 
                   <Button
                     type="submit"
                     disabled={
-                      uploading || registerMutation.isPending || !screenshotFile
+                      uploading || registerMutation.isPending || !whatsappSent
                     }
                     className={`w-full ${isFF ? "neon-btn-ff" : "neon-btn"}`}
                     data-ocid="tournament.submit_button"
+                    title={
+                      !whatsappSent
+                        ? "Send screenshot via WhatsApp first"
+                        : undefined
+                    }
                   >
                     {uploading || registerMutation.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Submitting…
                       </>
+                    ) : !whatsappSent ? (
+                      <>
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Send Screenshot First
+                      </>
                     ) : (
                       <>
                         <CheckCircle className="w-4 h-4 mr-2" />
-                        Submit Registration
+                        I've Sent the Screenshot — Submit Registration
                       </>
                     )}
                   </Button>
