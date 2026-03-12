@@ -100,9 +100,9 @@ export function Navbar() {
         >
           <div className="relative w-9 h-9 shrink-0">
             <img
-              src="/assets/generated/ind-esports-logo-trident-gun-transparent.dim_400x400.png"
+              src="/assets/uploads/LS20260311090407-1.png"
               alt="IND eSports Logo"
-              className="w-full h-full object-contain drop-shadow-[0_0_8px_oklch(0.86_0.22_198/0.7)] group-hover:drop-shadow-[0_0_14px_oklch(0.86_0.22_198/0.9)] transition-all duration-300"
+              className="w-full h-full object-contain drop-shadow-[0_0_8px_oklch(0.78_0.19_55/0.8)] group-hover:drop-shadow-[0_0_14px_oklch(0.78_0.19_55/1)] transition-all duration-300"
             />
           </div>
           <div className="flex flex-col leading-none">

@@ -173,7 +173,7 @@ const FF_MAPS = [
     size: "4×4 km",
     sizeTag: "CLASSIC",
     terrain: "Beaches, Urban Zones, Military",
-    color: "oklch(0.75 0.22 52)",
+    color: "oklch(0.82 0.18 85)",
     bgColor: "oklch(0.11 0.022 55)",
     tips: [
       "Pochinki equivalent: Peak is the most contested drop",
@@ -639,9 +639,9 @@ export function HomePage() {
                 {/* Logo + branding */}
                 <div className="flex items-center gap-3 mb-4">
                   <img
-                    src="/assets/generated/ind-esports-logo-trident-gun-transparent.dim_400x400.png"
+                    src="/assets/uploads/LS20260311090407-1.png"
                     alt="IND eSports"
-                    className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_0_16px_oklch(0.86_0.22_198/0.8)]"
+                    className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_0_16px_oklch(0.78_0.19_55/0.9)]"
                   />
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -767,7 +767,7 @@ export function HomePage() {
               className="relative px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all duration-300"
               style={{
                 background: !isBGMI
-                  ? "linear-gradient(135deg, oklch(0.75 0.22 52), oklch(0.65 0.20 48))"
+                  ? "linear-gradient(135deg, oklch(0.82 0.18 85), oklch(0.70 0.15 82))"
                   : "transparent",
                 color: !isBGMI
                   ? "oklch(0.06 0.012 255)"
@@ -797,10 +797,10 @@ export function HomePage() {
                 style={{
                   background: isBGMI
                     ? "oklch(0.68 0.28 285)"
-                    : "oklch(0.75 0.22 52)",
+                    : "oklch(0.82 0.18 85)",
                   boxShadow: isBGMI
                     ? "0 0 8px oklch(0.68 0.28 285)"
-                    : "0 0 8px oklch(0.75 0.22 52)",
+                    : "0 0 8px oklch(0.82 0.18 85)",
                 }}
               />
               <h2 className="font-display font-black text-2xl tracking-wider uppercase text-foreground">
@@ -816,7 +816,7 @@ export function HomePage() {
                     Free Fire MAX{" "}
                     <span
                       style={{
-                        color: "oklch(0.75 0.22 52)",
+                        color: "oklch(0.82 0.18 85)",
                         textShadow: "0 0 10px oklch(0.75 0.22 52 / 0.9)",
                       }}
                     >
@@ -837,7 +837,7 @@ export function HomePage() {
                 key={map.id}
                 map={map}
                 index={i}
-                accentColor={isBGMI ? undefined : "oklch(0.75 0.22 52)"}
+                accentColor={isBGMI ? undefined : "oklch(0.82 0.18 85)"}
               />
             ))}
           </div>

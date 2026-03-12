@@ -72,9 +72,9 @@ export default {
           ring: "oklch(var(--sidebar-ring))",
         },
         neon: {
-          cyan: "oklch(0.86 0.22 198)",
+          cyan: "oklch(0.82 0.18 85)",
           purple: "oklch(0.68 0.28 285)",
-          gold: "oklch(0.78 0.19 55)",
+          gold: "oklch(0.82 0.18 85)",
           green: "oklch(0.75 0.22 135)",
           ff: "oklch(0.75 0.22 52)",
         },
@@ -86,7 +86,9 @@ export default {
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgba(0,0,0,0.05)",
-        "glow-cyan": "0 0 15px oklch(0.88 0.18 195 / 0.4), 0 0 30px oklch(0.88 0.18 195 / 0.2)",
+        "glow-cyan": "0 0 15px oklch(0.82 0.18 85 / 0.4), 0 0 30px oklch(0.82 0.18 85 / 0.2)",
+        "glow-gold": "0 0 15px oklch(0.82 0.18 85 / 0.4), 0 0 30px oklch(0.82 0.18 85 / 0.2)",
+        "glow-gold-strong": "0 0 20px oklch(0.82 0.18 85 / 0.6), 0 0 40px oklch(0.82 0.18 85 / 0.3), 0 0 80px oklch(0.82 0.18 85 / 0.1)",
         "glow-green": "0 0 15px oklch(0.82 0.22 138 / 0.4), 0 0 30px oklch(0.82 0.22 138 / 0.2)",
         "glow-ff": "0 0 15px oklch(0.75 0.22 52 / 0.4), 0 0 30px oklch(0.75 0.22 52 / 0.2)",
       },

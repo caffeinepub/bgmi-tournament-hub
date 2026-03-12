@@ -8,7 +8,7 @@ export function Footer() {
         {/* Branding */}
         <div className="flex items-center gap-2.5">
           <img
-            src="/assets/generated/ind-esports-logo-trident-gun-transparent.dim_400x400.png"
+            src="/assets/uploads/LS20260311090407-1.png"
             alt="IND eSports"
             className="w-6 h-6 object-contain opacity-70"
           />
